@@ -78,10 +78,11 @@ ehthumbs.db
 desktop.ini
 
 # Certificados / chaves
-*.pem
 *.key
 *.crt
+# ca.pem REMOVIDO - necessário para produção
 
 # Outros temporários
 *.local
 *.tmp
+/src/generated/prisma

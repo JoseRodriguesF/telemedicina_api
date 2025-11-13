@@ -2,21 +2,28 @@
   "name": "telemedicina_api",
   "version": "1.0.0",
   "description": "",
-  "main": "server.ts",
+  "main": "index.ts",
   "scripts": {
-  "dev": "ts-node src/server.ts",
-  "build": "tsc",
-  "start": "node dist/server.js"
-},
+    "dev": "ts-node src/server.ts",
+    "build": "tsc && npm run prisma:generate",
+    "start": "node dist/server.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "migrate": "dotenv -e .env -- npx prisma migrate dev"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "fastify": "^5.6.2"
+    "@prisma/client": "^6.19.0",
+    "dotenv": "^17.2.3",
+    "fastify": "^5.6.2",
+    "prisma": "^6.19.0"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
+    "dotenv-cli": "^11.0.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }
