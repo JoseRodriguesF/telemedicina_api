@@ -1,0 +1,87 @@
+# .gitignore para telemedicina_api (API)
+# Ignora arquivos de ambiente, dependências, IDEs e artefatos gerados
+
+# Ambiente / segredos
+/config/.env
+.env
+.env.*      # ex: .env.local, .env.test
+*.secret
+credentials.json
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log
+.pnpm-debug.log
+
+# Mantém lockfiles no repositório
+!package-lock.json
+!yarn.lock
+!pnpm-lock.yaml
+!lock.json
+
+# Builds / artefatos
+dist/
+build/
+.tmp/
+out/
+public/build/
+
+# TypeScript
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.pid
+*.seed
+
+# Testes / cobertura
+coverage/
+coverage-final.json
+lcov.info
+test-results.xml
+.vitest/
+
+# Python (caso use serviços/funcs em Python)
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+ENV/
+env/
+.venv/
+
+# Docker
+docker-compose.override.yml
+# Imagens/volumes locais não versionar
+**/docker-compose.*.yml
+
+# IDEs / editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.user
+*.swp
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Certificados / chaves
+*.pem
+*.key
+*.crt
+
+# Outros temporários
+*.local
+*.tmp
