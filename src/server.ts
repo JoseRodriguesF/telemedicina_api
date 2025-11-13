@@ -7,7 +7,11 @@ const server = Fastify({ logger: true });
 //cria função que quando chamada inicializa o servidor na porta 3000, e adiciona tratamento de erro caso não seja possível iniciar o servidor
 const start = async () => {
   try {
-    await server.listen({ port: 3000 });
+    await server.listen({ 
+      port: 3000,
+      host: '0.0.0.0' //para funcionar no docker
+     });
+
     console.log('Servidor rodando na porta 3000');
   } catch (err) {
     server.log.error(err);
