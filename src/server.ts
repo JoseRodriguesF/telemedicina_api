@@ -2,6 +2,7 @@
 import Fastify from 'fastify';
 import prisma from './config/database';
 import dotenv from 'dotenv';
+import { registerRoutes } from './routes/register';
 
 //carrega as variáveis de ambiente do arquivo .env
 dotenv.config();
@@ -10,6 +11,9 @@ const server = Fastify({ logger: true });
 
 //cria função que quando chamada inicializa o servidor na porta 3000, e adiciona tratamento de erro caso não seja possível iniciar o servidor
 const start = async () => {
+  // Registrar rotas
+  await registerRoutes(server);
+
   try {
     //Aguarda a inicialização do servidor na porta 3000
     await server.listen({ 
