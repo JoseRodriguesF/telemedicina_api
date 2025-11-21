@@ -45,6 +45,13 @@ export class RegisterController {
   async registerPersonal(request: FastifyRequest, reply: FastifyReply) {
     try {
       const data = registerPersonalSchema.parse(request.body);
+      
+      // Verificar se o usuario_id do body corresponde ao usuário logado
+      if (!request.user || request.user.id !== data.usuario_id) {
+        reply.code(403).send({ error: 'Acesso negado. Você só pode editar seus próprios dados.' });
+        return;
+      }
+      
       const paciente = await registerService.createPaciente(data);
       reply.send({ message: 'Dados pessoais registrados com sucesso', pacienteId: paciente.id });
     } catch (error: any) {
