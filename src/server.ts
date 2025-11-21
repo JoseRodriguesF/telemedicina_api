@@ -3,6 +3,7 @@ import Fastify from 'fastify';
 import prisma from './config/database';
 import dotenv from 'dotenv';
 import { registerRoutes } from './routes/register';
+import { loginRoutes } from './routes/login';
 
 //carrega as variáveis de ambiente do arquivo .env
 dotenv.config();
@@ -13,6 +14,7 @@ const server = Fastify({ logger: true });
 const start = async () => {
   // Registrar rotas
   await registerRoutes(server);
+  await loginRoutes(server);
 
   try {
     //Aguarda a inicialização do servidor na porta 3000

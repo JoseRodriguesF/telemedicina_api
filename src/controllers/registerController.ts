@@ -31,12 +31,13 @@ export class RegisterController {
     try {
       const { email, senha, tipo_usuario } = registerAccessSchema.parse(request.body);
       const user = await registerService.createUser(email, senha, tipo_usuario);
-      reply.send({ message: 'Dados de acesso registrados', userId: user.id });
+      reply.send({ message: 'Dados de acesso registrados com sucesso', userId: user.id });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         reply.code(400).send({ error: 'Dados inválidos', details: error.issues });
       } else {
-        reply.code(400).send({ error: error.message });
+        const statusCode = error.statusCode || 500;
+        reply.code(statusCode).send({ error: error.message });
       }
     }
   }
@@ -45,12 +46,13 @@ export class RegisterController {
     try {
       const data = registerPersonalSchema.parse(request.body);
       const paciente = await registerService.createPaciente(data);
-      reply.send({ message: 'Dados pessoais registrados', pacienteId: paciente.id });
+      reply.send({ message: 'Dados pessoais registrados com sucesso', pacienteId: paciente.id });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         reply.code(400).send({ error: 'Dados inválidos', details: error.issues });
       } else {
-        reply.code(400).send({ error: error.message });
+        const statusCode = error.statusCode || 500;
+        reply.code(statusCode).send({ error: error.message });
       }
     }
   }
