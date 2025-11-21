@@ -1,6 +1,7 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { RegisterService } from '../services/registerService';
 import { z } from 'zod';
+import jwt from 'jsonwebtoken';
 
 const registerService = new RegisterService();
 
@@ -45,15 +46,28 @@ export class RegisterController {
   async registerPersonal(request: FastifyRequest, reply: FastifyReply) {
     try {
       const data = registerPersonalSchema.parse(request.body);
-      
-      // Verificar se o usuario_id do body corresponde ao usuário logado
-      if (!request.user || request.user.id !== data.usuario_id) {
-        reply.code(403).send({ error: 'Acesso negado. Você só pode editar seus próprios dados.' });
-        return;
-      }
-      
       const paciente = await registerService.createPaciente(data);
-      reply.send({ message: 'Dados pessoais registrados com sucesso', pacienteId: paciente.id });
+      
+      // Buscar dados do usuário para gerar JWT
+      const usuario = await registerService.getUsuarioById(data.usuario_id);
+      
+      // Gerar JWT
+      const token = jwt.sign(
+        { id: usuario.id, email: usuario.email, tipo_usuario: usuario.tipo_usuario },
+        process.env.JWT_SECRET!,
+        { expiresIn: '7d' }
+      );
+      
+      reply.send({ 
+        message: 'Dados pessoais registrados com sucesso. Cadastro completo!', 
+        pacienteId: paciente.id,
+        user: {
+          id: usuario.id,
+          email: usuario.email,
+          tipo_usuario: usuario.tipo_usuario,
+          token
+        }
+      });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         reply.code(400).send({ error: 'Dados inválidos', details: error.issues });

@@ -79,4 +79,12 @@ export class RegisterService {
       throw new Error('Erro interno ao registrar dados pessoais. Tente novamente mais tarde.');
     }
   }
+
+  async getUsuarioById(id: number) {
+    const usuario = await prisma.usuario.findUnique({ where: { id } });
+    if (!usuario) {
+      throw new Error('Usuário não encontrado.');
+    }
+    return usuario;
+  }
 }
