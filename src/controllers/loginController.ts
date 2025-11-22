@@ -15,7 +15,8 @@ export class LoginController {
     try {
       const { email, senha } = loginSchema.parse(request.body);
       const result = await loginService.authenticateUser(email, senha);
-      reply.send({ message: 'Login realizado com sucesso', user: result });
+      // Incluir `registro_full` também no nível raiz para garantir que o frontend o veja facilmente
+      reply.send({ message: 'Login realizado com sucesso', user: result, registro_full: result.registro_full });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         reply.code(400).send({ error: 'Dados inválidos', details: error.issues });
