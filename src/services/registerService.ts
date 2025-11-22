@@ -16,7 +16,7 @@ export class RegisterService {
 
     try {
       const user = await prisma.usuario.create({
-        data: { email, senha_hash, tipo_usuario }
+        data: { email, senha_hash, tipo_usuario, registroFull: false }
       });
       return user;
     } catch (error) {
@@ -74,11 +74,16 @@ export class RegisterService {
           data_nascimento: new Date(data.data_nascimento)
         }
       });
+
+      // Marcar usuário como registro completo
+      await prisma.usuario.update({ where: { id: data.usuario_id }, data: { registroFull: true } });
+
       return paciente;
     } catch (error) {
       throw new Error('Erro interno ao registrar dados pessoais. Tente novamente mais tarde.');
     }
   }
+
 
   async getUsuarioById(id: number) {
     const usuario = await prisma.usuario.findUnique({ where: { id } });

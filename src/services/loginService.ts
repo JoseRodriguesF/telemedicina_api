@@ -20,6 +20,11 @@ export class LoginService {
       throw error;
     }
 
+    // Recarregar usuário para garantir que o campo registroFull esteja presente
+    const usuarioCompleto = await prisma.usuario.findUnique({ where: { id: user.id } });
+    // compatibilidade: check both mapped camelCase and original snake_case if types differ
+    const registroFullValue = (usuarioCompleto as any)?.registroFull ?? (usuarioCompleto as any)?.registro_full ?? false;
+
     // Gerar JWT
     const token = jwt.sign(
       { id: user.id, email: user.email, tipo_usuario: user.tipo_usuario },
@@ -27,11 +32,12 @@ export class LoginService {
       { expiresIn: '7d' } // Expira em 7 dias
     );
 
-    // Retornar dados do usuário e token
+    // Retornar dados do usuário, token e flag registro_full (snake_case no payload)
     return {
       id: user.id,
       email: user.email,
       tipo_usuario: user.tipo_usuario,
+      registro_full: registroFullValue,
       token
     };
   }

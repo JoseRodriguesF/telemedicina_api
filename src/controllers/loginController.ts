@@ -21,7 +21,12 @@ export class LoginController {
         reply.code(400).send({ error: 'Dados inválidos', details: error.issues });
       } else {
         const statusCode = error.statusCode || 500;
-        reply.code(statusCode).send({ error: error.message });
+        // Se o service adicionou payload (ex: userId quando cadastro incompleto), inclua no retorno
+        if (error.payload) {
+          reply.code(statusCode).send({ error: error.message, payload: error.payload });
+        } else {
+          reply.code(statusCode).send({ error: error.message });
+        }
       }
     }
   }
