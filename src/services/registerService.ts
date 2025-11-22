@@ -1,14 +1,13 @@
 import prisma from '../config/database';
 import bcrypt from 'bcrypt';
+import ApiError from '../utils/apiError';
 
 export class RegisterService {
   async createUser(email: string, senha: string, tipo_usuario: 'medico' | 'paciente') {
     // Verificar se email já existe
     const existingUser = await prisma.usuario.findUnique({ where: { email } });
     if (existingUser) {
-      const error = new Error('Este email já está registrado. Tente fazer login ou use outro email.');
-      (error as any).statusCode = 409; // Conflict
-      throw error;
+      throw new ApiError('Este email já está registrado. Tente fazer login ou use outro email.', 409, 'EMAIL_ALREADY_EXISTS');
     }
 
     // Hash da senha
@@ -20,7 +19,7 @@ export class RegisterService {
       });
       return user;
     } catch (error) {
-      throw new Error('Erro interno ao registrar usuário. Tente novamente mais tarde.');
+      throw new ApiError('Erro interno ao registrar usuário. Tente novamente mais tarde.', 500, 'INTERNAL_ERROR');
     }
   }
 
@@ -41,30 +40,22 @@ export class RegisterService {
     // Verificar se usuario existe e é paciente
     const user = await prisma.usuario.findUnique({ where: { id: data.usuario_id } });
     if (!user) {
-      const error = new Error('Usuário não encontrado. Verifique o ID fornecido.');
-      (error as any).statusCode = 404; // Not Found
-      throw error;
+      throw new ApiError('Usuário não encontrado. Verifique o ID fornecido.', 404, 'USER_NOT_FOUND');
     }
     if (user.tipo_usuario !== 'paciente') {
-      const error = new Error('Este usuário não é do tipo paciente. Dados pessoais só podem ser registrados para pacientes.');
-      (error as any).statusCode = 400; // Bad Request
-      throw error;
+      throw new ApiError('Este usuário não é do tipo paciente. Dados pessoais só podem ser registrados para pacientes.', 400, 'INVALID_USER_TYPE');
     }
 
     // Verificar se paciente já existe
     const existingPaciente = await prisma.paciente.findUnique({ where: { usuario_id: data.usuario_id } });
     if (existingPaciente) {
-      const error = new Error('Dados pessoais já foram registrados para este usuário.');
-      (error as any).statusCode = 409; // Conflict
-      throw error;
+      throw new ApiError('Dados pessoais já foram registrados para este usuário.', 409, 'PATIENT_ALREADY_EXISTS');
     }
 
     // Verificar CPF único
     const existingCpf = await prisma.paciente.findUnique({ where: { cpf: data.cpf } });
     if (existingCpf) {
-      const error = new Error('Este CPF já está registrado no sistema.');
-      (error as any).statusCode = 409; // Conflict
-      throw error;
+      throw new ApiError('Este CPF já está registrado no sistema.', 409, 'CPF_ALREADY_EXISTS');
     }
 
     try {
@@ -80,7 +71,7 @@ export class RegisterService {
 
       return paciente;
     } catch (error) {
-      throw new Error('Erro interno ao registrar dados pessoais. Tente novamente mais tarde.');
+      throw new ApiError('Erro interno ao registrar dados pessoais. Tente novamente mais tarde.', 500, 'INTERNAL_ERROR');
     }
   }
 
@@ -88,7 +79,7 @@ export class RegisterService {
   async getUsuarioById(id: number) {
     const usuario = await prisma.usuario.findUnique({ where: { id } });
     if (!usuario) {
-      throw new Error('Usuário não encontrado.');
+      throw new ApiError('Usuário não encontrado.', 404, 'USER_NOT_FOUND');
     }
     return usuario;
   }

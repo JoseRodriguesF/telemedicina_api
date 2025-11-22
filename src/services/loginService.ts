@@ -1,23 +1,20 @@
 import prisma from '../config/database';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import ApiError from '../utils/apiError';
 
 export class LoginService {
   async authenticateUser(email: string, senha: string) {
     // Buscar usuário por email
     const user = await prisma.usuario.findUnique({ where: { email } });
     if (!user) {
-      const error = new Error('Credenciais inválidas. Verifique seu email e senha.');
-      (error as any).statusCode = 401; // Unauthorized
-      throw error;
+      throw new ApiError('Usuário com este email não foi encontrado.', 404, 'USER_NOT_FOUND');
     }
 
     // Verificar senha
     const isPasswordValid = await bcrypt.compare(senha, user.senha_hash);
     if (!isPasswordValid) {
-      const error = new Error('Credenciais inválidas. Verifique seu email e senha.');
-      (error as any).statusCode = 401; // Unauthorized
-      throw error;
+      throw new ApiError('Senha incorreta. Verifique sua senha e tente novamente.', 401, 'WRONG_PASSWORD');
     }
 
     // Recarregar usuário para garantir que o campo registroFull esteja presente

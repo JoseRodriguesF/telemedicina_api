@@ -2,6 +2,7 @@ import { FastifyRequest, FastifyReply } from 'fastify';
 import { RegisterService } from '../services/registerService';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
+import ApiError from '../utils/apiError';
 
 const registerService = new RegisterService();
 
@@ -35,10 +36,11 @@ export class RegisterController {
       reply.send({ message: 'Dados de acesso registrados com sucesso', userId: user.id });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        reply.code(400).send({ error: 'Dados inválidos', details: error.issues });
+        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } });
+      } else if (error instanceof ApiError) {
+        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
       } else {
-        const statusCode = error.statusCode || 500;
-        reply.code(statusCode).send({ error: error.message });
+        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
       }
     }
   }
@@ -70,10 +72,11 @@ export class RegisterController {
       });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        reply.code(400).send({ error: 'Dados inválidos', details: error.issues });
+        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } });
+      } else if (error instanceof ApiError) {
+        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
       } else {
-        const statusCode = error.statusCode || 500;
-        reply.code(statusCode).send({ error: error.message });
+        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
       }
     }
   }
