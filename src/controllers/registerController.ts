@@ -28,6 +28,19 @@ const registerPersonalSchema = z.object({
   numero_carteirinha: z.string().optional()
 });
 
+const registerMedicoSchema = z.object({
+  usuario_id: z.number().int().positive('ID do usuário deve ser um número positivo'),
+  nome_completo: z.string().min(1, 'Nome completo é obrigatório'),
+  data_nascimento: z.string().refine((date) => !isNaN(Date.parse(date)), 'Data de nascimento inválida'),
+  cpf: z.string().regex(/^\d{11}$/, 'CPF deve ter 11 dígitos numéricos'),
+  sexo: z.string().optional(),
+  crm: z.string().min(1, 'CRM é obrigatório'),
+  diploma_url: z.string().url().optional(),
+  especializacao_url: z.string().url().optional(),
+  assinatura_digital_url: z.string().url().optional(),
+  seguro_responsabilidade_url: z.string().url().optional()
+});
+
 export class RegisterController {
   async registerAccess(request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -63,6 +76,42 @@ export class RegisterController {
       reply.send({ 
         message: 'Dados pessoais registrados com sucesso. Cadastro completo!', 
         pacienteId: paciente.id,
+        user: {
+          id: usuario.id,
+          email: usuario.email,
+          tipo_usuario: usuario.tipo_usuario,
+          token
+        }
+      });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } });
+      } else if (error instanceof ApiError) {
+        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
+      } else {
+        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
+      }
+    }
+  }
+
+  async registerMedico(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const data = registerMedicoSchema.parse(request.body);
+      const medico = await registerService.createMedico(data as any);
+
+      // Buscar dados do usuário para gerar JWT
+      const usuario = await registerService.getUsuarioById(data.usuario_id);
+
+      // Gerar JWT
+      const token = jwt.sign(
+        { id: usuario.id, email: usuario.email, tipo_usuario: usuario.tipo_usuario },
+        process.env.JWT_SECRET!,
+        { expiresIn: '7d' }
+      );
+
+      reply.send({
+        message: 'Dados pessoais do médico registrados com sucesso. Cadastro completo!',
+        medicoId: medico.id,
         user: {
           id: usuario.id,
           email: usuario.email,

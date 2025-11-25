@@ -31,6 +31,8 @@ model Usuario {
 
   // Relacionamento com Paciente
   paciente    Paciente?
+  // Relacionamento com Medico
+  medico      Medico?
 
   @@map("usuarios")
 }
@@ -54,4 +56,22 @@ model Paciente {
   usuario             Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
   @@map("pacientes")
+}
+
+model Medico {
+  id                         Int      @id @default(autoincrement())
+  usuario_id                 Int      @unique
+  nome_completo              String
+  data_nascimento            DateTime
+  cpf                        String   @unique
+  sexo                       String?
+  crm                        String
+  diploma_url                String?
+  especializacao_url         String?
+  assinatura_digital_url     String?
+  seguro_responsabilidade_url String?
+
+  usuario                    Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@map("medicos")
 }
