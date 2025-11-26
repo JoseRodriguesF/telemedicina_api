@@ -53,6 +53,8 @@ export class RegisterController {
       } else if (error instanceof ApiError) {
         reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
       } else {
+        // Log completo do erro no servidor para diagnóstico (não expor ao cliente)
+        console.error('RegisterController.registerAccess error:', error instanceof Error ? error.stack || error.message : error);
         reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
       }
     }
@@ -89,6 +91,7 @@ export class RegisterController {
       } else if (error instanceof ApiError) {
         reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
       } else {
+        console.error('RegisterController.registerPersonal error:', error instanceof Error ? error.stack || error.message : error);
         reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
       }
     }
@@ -125,6 +128,7 @@ export class RegisterController {
       } else if (error instanceof ApiError) {
         reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
       } else {
+        console.error('RegisterController.registerMedico error:', error instanceof Error ? error.stack || error.message : error);
         reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
       }
     }
