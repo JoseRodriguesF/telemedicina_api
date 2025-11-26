@@ -1,17 +1,59 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
-  //output = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id           Int         @id @default(autoincrement())
+  email        String      @unique @db.VarChar(255)
+  senha_hash   String?     @db.VarChar(255)
+  google_id    String?     @unique @map("google_id") @db.VarChar(255)
+  registroFull Boolean     @default(false) @map("registro_full")
+  tipo_usuario TipoUsuario
+  medico       Medico?
+  paciente     Paciente?
+
+  @@map("usuarios")
+}
+
+model Paciente {
+  id                   Int      @id @default(autoincrement())
+  usuario_id           Int      @unique
+  nome_completo        String   @db.VarChar(255)
+  data_nascimento      DateTime @db.Date
+  cpf                  String   @unique @db.VarChar(14)
+  sexo                 String   @db.VarChar(20)
+  estado_civil         String   @db.VarChar(50)
+  endereco             String
+  telefone             String   @db.VarChar(11)
+  responsavel_legal    String?  @db.VarChar(255)
+  telefone_responsavel String?  @db.VarChar(20)
+  convenio             String?  @db.VarChar(255)
+  numero_carteirinha   String?  @db.VarChar(50)
+  usuario              Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("pacientes")
+}
+
+model Medico {
+  id                          Int      @id @default(autoincrement())
+  usuario_id                  Int      @unique
+  nome_completo               String   @db.VarChar(255)
+  data_nascimento             DateTime @db.Date
+  cpf                         String   @unique @db.VarChar(14)
+  sexo                        String?  @db.VarChar(20)
+  crm                         String   @db.VarChar(50)
+  diploma_url                 String?  @db.VarChar(255)
+  especializacao_url          String?  @db.VarChar(255)
+  assinatura_digital_url      String?  @db.VarChar(255)
+  seguro_responsabilidade_url String?  @db.VarChar(255)
+  usuario                     Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("medicos")
 }
 
 enum TipoUsuario {
@@ -19,60 +61,4 @@ enum TipoUsuario {
   paciente
 
   @@map("tipo_usuario_enum")
-}
-
-model Usuario {
-  id          Int         @id @default(autoincrement())
-  email       String      @unique
-  senha_hash  String?
-  google_id   String?     @unique @map("google_id")
-  registroFull Boolean   @default(false) @map("registro_full")
-  tipo_usuario TipoUsuario
-  criado_em   DateTime    @default(now())
-
-  // Relacionamento com Paciente
-  paciente    Paciente?
-  // Relacionamento com Medico
-  medico      Medico?
-
-  @@map("usuarios")
-}
-
-model Paciente {
-  id                  Int      @id @default(autoincrement())
-  usuario_id          Int      @unique
-  nome_completo       String
-  data_nascimento     DateTime
-  cpf                 String   @unique
-  sexo                String
-  estado_civil        String
-  endereco            String
-  telefone            String
-  responsavel_legal   String?
-  telefone_responsavel String?
-  convenio            String?
-  numero_carteirinha  String?
-
-  // Relacionamento com Usuario
-  usuario             Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
-
-  @@map("pacientes")
-}
-
-model Medico {
-  id                         Int      @id @default(autoincrement())
-  usuario_id                 Int      @unique
-  nome_completo              String
-  data_nascimento            DateTime
-  cpf                        String   @unique
-  sexo                       String?
-  crm                        String
-  diploma_url                String?
-  especializacao_url         String?
-  assinatura_digital_url     String?
-  seguro_responsabilidade_url String?
-
-  usuario                    Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
-
-  @@map("medicos")
 }
