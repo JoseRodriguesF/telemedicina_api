@@ -21,6 +21,7 @@ const registerPersonalSchema = z.object({
   sexo: z.string().min(1, 'Sexo é obrigatório'),
   estado_civil: z.string().min(1, 'Estado civil é obrigatório'),
   endereco: z.string().min(1, 'Endereço é obrigatório'),
+  numero: z.number().int().nonnegative('Número inválido'),
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
   responsavel_legal: z.string().optional(),
   telefone_responsavel: z.string().optional(),

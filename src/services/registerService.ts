@@ -30,6 +30,7 @@ export class RegisterService {
     data_nascimento: string;
     cpf: string;
     sexo: string;
+    numero: number;
     estado_civil: string;
     endereco: string;
     telefone: string;

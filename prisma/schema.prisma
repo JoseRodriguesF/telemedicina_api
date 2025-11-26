@@ -30,6 +30,7 @@ model Paciente {
   estado_civil         String   @db.VarChar(50)
   endereco             String
   telefone             String   @db.VarChar(11)
+  numero               Int
   responsavel_legal    String?  @db.VarChar(255)
   telefone_responsavel String?  @db.VarChar(20)
   convenio             String?  @db.VarChar(255)
