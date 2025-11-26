@@ -12,6 +12,11 @@ export class LoginService {
     }
 
     // Verificar senha
+    // Se a conta não tem senha (usuário criado/vinculado via OAuth), indicar uso do login OAuth
+    if (!user.senha_hash) {
+      throw new ApiError('Esta conta está vinculada ao Google. Faça login usando o Google.', 401, 'USE_GOOGLE_AUTH');
+    }
+
     const isPasswordValid = await bcrypt.compare(senha, user.senha_hash);
     if (!isPasswordValid) {
       throw new ApiError('Senha incorreta. Verifique sua senha e tente novamente.', 401, 'WRONG_PASSWORD');

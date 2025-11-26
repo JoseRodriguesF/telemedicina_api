@@ -24,7 +24,8 @@ enum TipoUsuario {
 model Usuario {
   id          Int         @id @default(autoincrement())
   email       String      @unique
-  senha_hash  String
+  senha_hash  String?
+  google_id   String?     @unique @map("google_id")
   registroFull Boolean   @default(false) @map("registro_full")
   tipo_usuario TipoUsuario
   criado_em   DateTime    @default(now())

@@ -4,6 +4,7 @@ import prisma from './config/database';
 import dotenv from 'dotenv';
 import { registerRoutes } from './routes/register';
 import { loginRoutes } from './routes/login';
+import { googleRoutes } from './routes/google';
 
 //carrega as variáveis de ambiente do arquivo .env
 dotenv.config();
@@ -15,6 +16,7 @@ const start = async () => {
   // Registrar rotas
   await registerRoutes(server);
   await loginRoutes(server);
+  await googleRoutes(server);
 
   try {
     //Aguarda a inicialização do servidor na porta 3000
