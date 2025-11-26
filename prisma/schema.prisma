@@ -31,6 +31,7 @@ model Paciente {
   endereco             String
   telefone             String   @db.VarChar(11)
   numero               Int
+  complemento          String?  @db.Text
   responsavel_legal    String?  @db.VarChar(255)
   telefone_responsavel String?  @db.VarChar(20)
   convenio             String?  @db.VarChar(255)

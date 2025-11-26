@@ -26,6 +26,7 @@ const registerPersonalSchema = z.object({
   responsavel_legal: z.string().optional(),
   telefone_responsavel: z.string().optional(),
   convenio: z.string().optional(),
+  complemento: z.string().optional(),
   numero_carteirinha: z.string().optional()
 });
 

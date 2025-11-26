@@ -31,6 +31,7 @@ export class RegisterService {
     cpf: string;
     sexo: string;
     numero: number;
+    complemento?: string;
     estado_civil: string;
     endereco: string;
     telefone: string;
