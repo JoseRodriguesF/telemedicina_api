@@ -16,6 +16,7 @@ model Usuario {
   tipo_usuario TipoUsuario
   medico       Medico?
   paciente     Paciente?
+  enderecos    Endereco[]
 
   @@map("usuarios")
 }
@@ -28,10 +29,7 @@ model Paciente {
   cpf                  String   @unique @db.VarChar(14)
   sexo                 String   @db.VarChar(20)
   estado_civil         String   @db.VarChar(50)
-  endereco             String
   telefone             String   @db.VarChar(11)
-  numero               Int
-  complemento          String?  @db.Text
   responsavel_legal    String?  @db.VarChar(255)
   telefone_responsavel String?  @db.VarChar(20)
   convenio             String?  @db.VarChar(255)
@@ -58,9 +56,22 @@ model Medico {
   @@map("medicos")
 }
 
+model Endereco {
+  id          Int      @id @default(autoincrement())
+  usuario_id  Int
+  endereco    String
+  numero      Int
+  complemento String?
+
+  usuario     Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@map("enderecos")
+}
+
 enum TipoUsuario {
   medico
   paciente
+  admin
 
   @@map("tipo_usuario_enum")
 }

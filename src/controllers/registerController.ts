@@ -20,14 +20,16 @@ const registerPersonalSchema = z.object({
   cpf: z.string().regex(/^\d{11}$/, 'CPF deve ter 11 dígitos numéricos'),
   sexo: z.string().min(1, 'Sexo é obrigatório'),
   estado_civil: z.string().min(1, 'Estado civil é obrigatório'),
-  endereco: z.string().min(1, 'Endereço é obrigatório'),
-  numero: z.number().int().nonnegative('Número inválido'),
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
   responsavel_legal: z.string().optional(),
   telefone_responsavel: z.string().optional(),
   convenio: z.string().optional(),
-  complemento: z.string().optional(),
-  numero_carteirinha: z.string().optional()
+  numero_carteirinha: z.string().optional(),
+  endereco: z.object({
+    endereco: z.string().min(1, 'Endereço é obrigatório'),
+    numero: z.number().int().nonnegative('Número inválido'),
+    complemento: z.string().optional()
+  })
 });
 
 const registerMedicoSchema = z.object({
@@ -66,6 +68,13 @@ export class RegisterController {
     try {
       const data = registerPersonalSchema.parse(request.body);
       const paciente = await registerService.createPaciente(data);
+      // Criar endereço associado ao usuário
+      await registerService.createEndereco({
+        usuario_id: data.usuario_id,
+        endereco: data.endereco.endereco,
+        numero: data.endereco.numero,
+        complemento: data.endereco.complemento
+      });
       
       // Buscar dados do usuário para gerar JWT
       const usuario = await registerService.getUsuarioById(data.usuario_id);

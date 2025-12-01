@@ -30,15 +30,13 @@ export class RegisterService {
     data_nascimento: string;
     cpf: string;
     sexo: string;
-    numero: number;
-    complemento?: string;
     estado_civil: string;
-    endereco: string;
     telefone: string;
     responsavel_legal?: string;
     telefone_responsavel?: string;
     convenio?: string;
     numero_carteirinha?: string;
+    endereco?: { endereco: string; numero: number; complemento?: string };
   }) {
     // Verificar se usuario existe e é paciente
     const user = await prisma.usuario.findUnique({ where: { id: data.usuario_id } });
@@ -64,8 +62,17 @@ export class RegisterService {
     try {
       const paciente = await prisma.paciente.create({
         data: {
-          ...data,
-          data_nascimento: new Date(data.data_nascimento)
+          usuario_id: data.usuario_id,
+          nome_completo: data.nome_completo,
+          data_nascimento: new Date(data.data_nascimento),
+          cpf: data.cpf,
+          sexo: data.sexo,
+          estado_civil: data.estado_civil,
+          telefone: data.telefone,
+          responsavel_legal: data.responsavel_legal,
+          telefone_responsavel: data.telefone_responsavel,
+          convenio: data.convenio,
+          numero_carteirinha: data.numero_carteirinha
         }
       });
 
@@ -76,6 +83,23 @@ export class RegisterService {
     } catch (error: any) {
       console.error('createPaciente error:', error);
       throw new ApiError('Erro interno ao registrar dados pessoais. Tente novamente mais tarde.', 500, 'INTERNAL_ERROR', error.message);
+    }
+  }
+
+  async createEndereco(data: { usuario_id: number; endereco: string; numero: number; complemento?: string }) {
+    try {
+      const endereco = await prisma.endereco.create({
+        data: {
+          usuario_id: data.usuario_id,
+          endereco: data.endereco,
+          numero: data.numero,
+          complemento: data.complemento
+        }
+      });
+      return endereco;
+    } catch (error: any) {
+      console.error('createEndereco error:', error);
+      throw new ApiError('Erro interno ao registrar endereço. Tente novamente mais tarde.', 500, 'INTERNAL_ERROR', error.message);
     }
   }
 
