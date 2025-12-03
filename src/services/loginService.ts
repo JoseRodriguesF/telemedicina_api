@@ -27,6 +27,18 @@ export class LoginService {
     // compatibilidade: check both mapped camelCase and original snake_case if types differ
     const registroFullValue = (usuarioCompleto as any)?.registroFull ?? (usuarioCompleto as any)?.registro_full ?? false;
 
+    // Obter nome do usuário (paciente/medico) e verificação (se médico)
+    let verificacao: string | undefined;
+    let nome: string | undefined;
+    if (user.tipo_usuario === 'medico') {
+      const medico = await prisma.medico.findUnique({ where: { usuario_id: user.id } });
+      verificacao = (medico as any)?.verificacao;
+      nome = (medico as any)?.nome_completo;
+    } else if (user.tipo_usuario === 'paciente') {
+      const paciente = await prisma.paciente.findUnique({ where: { usuario_id: user.id } });
+      nome = (paciente as any)?.nome_completo;
+    }
+
     // Gerar JWT
     const token = jwt.sign(
       { id: user.id, email: user.email, tipo_usuario: user.tipo_usuario },
@@ -40,6 +52,8 @@ export class LoginService {
       email: user.email,
       tipo_usuario: user.tipo_usuario,
       registro_full: registroFullValue,
+      nome,
+      verificacao,
       token
     };
   }

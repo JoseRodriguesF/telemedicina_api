@@ -93,6 +93,7 @@ export class RegisterController {
           id: usuario.id,
           email: usuario.email,
           tipo_usuario: usuario.tipo_usuario,
+          nome: data.nome_completo,
           token
         }
       });
@@ -130,6 +131,7 @@ export class RegisterController {
           id: usuario.id,
           email: usuario.email,
           tipo_usuario: usuario.tipo_usuario,
+          nome: data.nome_completo,
           token
         }
       });

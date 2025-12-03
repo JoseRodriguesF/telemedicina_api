@@ -21,21 +21,35 @@ export class GoogleAuthService {
       // Login: somente com google_id (não vinculamos automaticamente por email aqui)
       const user = await prisma.usuario.findUnique({ where: { google_id: googleId } as any });
       if (!user) {
-        throw new ApiError('Conta Google não encontrada. Registre-se primeiro.', 404, 'GOOGLE_ACCOUNT_NOT_FOUND');
+        throw new ApiError('No user linked to this Google account', 404, 'USER_NOT_FOUND');
       }
 
       const token = jwt.sign({ id: user.id, email: user.email, tipo_usuario: user.tipo_usuario }, process.env.JWT_SECRET!, { expiresIn: '7d' });
+
+      // Carregar nome/verificacao
+      let nome: string | undefined;
+      let verificacao: string | undefined;
+      if (user.tipo_usuario === 'medico') {
+        const medico = await prisma.medico.findUnique({ where: { usuario_id: user.id } });
+        nome = (medico as any)?.nome_completo;
+        verificacao = (medico as any)?.verificacao;
+      } else if (user.tipo_usuario === 'paciente') {
+        const paciente = await prisma.paciente.findUnique({ where: { usuario_id: user.id } });
+        nome = (paciente as any)?.nome_completo;
+      }
 
       return {
         id: user.id,
         email: user.email,
         tipo_usuario: user.tipo_usuario,
         registro_full: (user as any).registroFull ?? false,
-        token
+        token,
+        nome,
+        verificacao
       };
     } catch (err: any) {
       if (err instanceof ApiError) throw err;
-      throw new ApiError('Erro ao verificar token Google', 500, 'GOOGLE_VERIFICATION_ERROR', err?.message);
+      throw new ApiError('Failed to verify Google token', 401, 'INVALID_GOOGLE_TOKEN', err?.message);
     }
   }
 
@@ -67,16 +81,27 @@ export class GoogleAuthService {
 
       const token = jwt.sign({ id: user.id, email: user.email, tipo_usuario: user.tipo_usuario }, process.env.JWT_SECRET!, { expiresIn: '7d' });
 
+      // Tentar obter nome se já existir registro pessoal (normalmente será null neste momento)
+      let nome: string | undefined;
+      if (user.tipo_usuario === 'medico') {
+        const medico = await prisma.medico.findUnique({ where: { usuario_id: user.id } });
+        nome = (medico as any)?.nome_completo;
+      } else if (user.tipo_usuario === 'paciente') {
+        const paciente = await prisma.paciente.findUnique({ where: { usuario_id: user.id } });
+        nome = (paciente as any)?.nome_completo;
+      }
+
       return {
         id: user.id,
         email: user.email,
         tipo_usuario: user.tipo_usuario,
         registro_full: (user as any).registroFull ?? false,
-        token
+        token,
+        nome
       };
     } catch (err: any) {
       if (err instanceof ApiError) throw err;
-      throw new ApiError('Erro ao verificar token Google', 500, 'GOOGLE_VERIFICATION_ERROR', err?.message);
+      throw new ApiError('Failed to verify Google token', 401, 'INVALID_GOOGLE_TOKEN', err?.message);
     }
   }
 }
