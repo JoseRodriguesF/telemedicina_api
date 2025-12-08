@@ -25,7 +25,7 @@ function verifyToken(token?: string): { id: number } | null {
 export function initSignalServer(httpServer: Server) {
   const wss = new WebSocketServer({ server: httpServer, path: '/signal' })
 
-  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
+  wss.on('connection', async (ws: WebSocket, req: IncomingMessage) => {
     const url = new URL(req.url || '', `http://${req.headers.host}`)
     const roomId = url.searchParams.get('roomId') || ''
     const token = url.searchParams.get('token') || ''
