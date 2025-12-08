@@ -12,6 +12,12 @@ export async function createOrGetRoom(req: FastifyRequest<{ Params: ParamsId }>,
   const consulta = await getConsultaById(id)
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
+  // autorização: apenas médico/paciente da consulta
+  const user: any = (req as any).user
+  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+    return reply.code(403).send({ error: 'forbidden' })
+  }
+
   const { roomId, created } = Rooms.createOrGet(id)
 
   // montar iceServers do ambiente
@@ -32,6 +38,11 @@ export async function listParticipants(req: FastifyRequest<{ Params: ParamsId }>
   const consulta = await getConsultaById(id)
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
+  const user: any = (req as any).user
+  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+    return reply.code(403).send({ error: 'forbidden' })
+  }
+
   // encontrar room associado à consulta
   let roomId: string | undefined = Rooms.findRoomIdByConsulta(id)
   if (!roomId) roomId = Rooms.createOrGet(id).roomId
@@ -44,6 +55,11 @@ export async function endConsulta(req: FastifyRequest<{ Params: ParamsId }>, rep
   if (Number.isNaN(id)) return reply.code(400).send({ error: 'invalid_consulta_id' })
   const consulta = await getConsultaById(id)
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+
+  const user: any = (req as any).user
+  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+    return reply.code(403).send({ error: 'forbidden' })
+  }
 
   // localizar room e encerrar
   let roomId: string | undefined
@@ -61,6 +77,10 @@ export async function joinRoom(req: FastifyRequest<{ Params: ParamsId; Body: Joi
   if (Number.isNaN(id)) return reply.code(400).send({ error: 'invalid_consulta_id' })
   const consulta = await getConsultaById(id)
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+  const user: any = (req as any).user
+  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+    return reply.code(403).send({ error: 'forbidden' })
+  }
   const { roomId } = Rooms.createOrGet(id)
   const res = Rooms.addParticipant(roomId, { userId: req.body.userId, role: req.body.role })
   if (!res.ok) return reply.code(409).send({ error: res.reason })

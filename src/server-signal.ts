@@ -1,7 +1,8 @@
-import { Server } from 'http'
-import WebSocket, { WebSocketServer } from 'ws'
+import { Server, IncomingMessage } from 'http'
+import WebSocket, { WebSocketServer, RawData } from 'ws'
 import jwt from 'jsonwebtoken'
 import { Rooms } from './utils/rooms'
+import { getConsultaById } from './services/consultasService'
 
 type ClientInfo = {
   userId: string | number
@@ -24,7 +25,7 @@ function verifyToken(token?: string): { id: number } | null {
 export function initSignalServer(httpServer: Server) {
   const wss = new WebSocketServer({ server: httpServer, path: '/signal' })
 
-  wss.on('connection', (ws, req) => {
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage) => {
     const url = new URL(req.url || '', `http://${req.headers.host}`)
     const roomId = url.searchParams.get('roomId') || ''
     const token = url.searchParams.get('token') || ''
@@ -40,10 +41,17 @@ export function initSignalServer(httpServer: Server) {
       return
     }
 
+    // autorização forte: validar que decoded.id pertence à consulta (medico/paciente)
+    const consulta = await getConsultaById(room.consultaId)
+    if (!consulta || (decoded.id !== consulta.medicoId && decoded.id !== consulta.pacienteId)) {
+      ws.close(4003, 'forbidden')
+      return
+    }
+
     // default client info; will be finalized on join message
     clients.set(ws, { userId: decoded.id, roomId })
 
-    ws.on('message', (data) => {
+    ws.on('message', (data: RawData) => {
       let msg: any
       try { msg = JSON.parse(data.toString()) } catch { return }
 
