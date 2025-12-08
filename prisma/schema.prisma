@@ -35,6 +35,7 @@ model Paciente {
   convenio             String?  @db.VarChar(255)
   numero_carteirinha   String?  @db.VarChar(50)
   usuario              Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  consultas            Consulta[] @relation("ConsultaPaciente")
 
   @@map("pacientes")
 }
@@ -53,6 +54,7 @@ model Medico {
   seguro_responsabilidade_url String?  @db.VarChar(255)
   verificacao                 StatusVerificacao @default(analise)
   usuario                     Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  consultas                   Consulta[] @relation("ConsultaMedico")
 
   @@map("medicos")
 }
@@ -83,4 +85,29 @@ enum StatusVerificacao {
   recusado
 
   @@map("status_verificacao_enum")
+}
+
+enum ConsultaStatus {
+  scheduled
+  in_progress
+  finished
+
+  @@map("consulta_status_enum")
+}
+
+model Consulta {
+  id          Int             @id @default(autoincrement())
+  medicoId    Int             @map("medico_id")
+  pacienteId  Int             @map("paciente_id")
+  status      ConsultaStatus
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  medico      Medico          @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
+  paciente    Paciente        @relation(name: "ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@index([medicoId], name: "idx_consultas_medico_id")
+  @@index([pacienteId], name: "idx_consultas_paciente_id")
+  @@index([medicoId, pacienteId], name: "idx_consultas_medico_paciente")
+  @@map("consultas")
 }

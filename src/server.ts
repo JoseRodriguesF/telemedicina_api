@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 import { registerRoutes } from './routes/register';
 import { loginRoutes } from './routes/login';
 import { googleRoutes } from './routes/google';
+import consultasRoutes from './routes/consultas';
+import { initSignalServer } from './server-signal';
 
 //carrega as variáveis de ambiente do arquivo .env
 dotenv.config();
@@ -17,6 +19,7 @@ const start = async () => {
   await registerRoutes(server);
   await loginRoutes(server);
   await googleRoutes(server);
+  await consultasRoutes(server);
 
   try {
     //Aguarda a inicialização do servidor na porta 3000
@@ -24,6 +27,9 @@ const start = async () => {
       port: process.env.PORT ? parseInt(process.env.PORT): 3000,
       host: '0.0.0.0' //para funcionar no docker
      });
+    // inicializa WebSocket de sinalização sobre o mesmo servidor HTTP
+    const httpServer = server.server;
+    initSignalServer(httpServer);
     console.log('✅ Servidor rodando na porta 3000 ✅');
     //aguarda a conexão com o banco de dados
     await prisma.$connect();
