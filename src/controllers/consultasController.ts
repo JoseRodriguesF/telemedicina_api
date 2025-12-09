@@ -1,6 +1,7 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { getConsultaById, updateConsultaStatus } from '../services/consultasService'
 import { Rooms } from '../utils/rooms'
+import { getIceServersFromEnv, getIceServersFromXirsys } from '../services/iceServers'
 
 type ParamsId = { id: string }
 type JoinBody = { userId: string | number; role?: 'medico' | 'paciente' }
@@ -20,11 +21,13 @@ export async function createOrGetRoom(req: FastifyRequest<{ Params: ParamsId }>,
 
   const { roomId, created } = Rooms.createOrGet(id)
 
-  // montar iceServers do ambiente
-  const iceServers: any[] = []
-  iceServers.push({ urls: process.env.STUN_URL || 'stun:stun.l.google.com:19302' })
-  if (process.env.TURN_URL && process.env.TURN_USER && process.env.TURN_PASS) {
-    iceServers.push({ urls: process.env.TURN_URL, username: process.env.TURN_USER, credential: process.env.TURN_PASS })
+  // montar iceServers: ambiente > Xirsys > default STUN
+  let iceServers: any[] | null = getIceServersFromEnv()
+  if (!iceServers) {
+    iceServers = await getIceServersFromXirsys()
+  }
+  if (!iceServers) {
+    iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]
   }
 
   if (created && consulta.status === 'scheduled') await updateConsultaStatus(id, 'in_progress')
