@@ -41,11 +41,13 @@ export function initSignalServer(httpServer: Server) {
       return
     }
 
-    // autorização forte: validar que decoded.id pertence à consulta (medico/paciente)
-    const consulta = await getConsultaById(room.consultaId)
-    if (!consulta || (decoded.id !== consulta.medicoId && decoded.id !== consulta.pacienteId)) {
-      ws.close(4003, 'forbidden')
-      return
+    // autorização: se a sala estiver vinculada a uma consulta, somente médico/paciente daquela consulta
+    if (room.consultaId) {
+      const consulta = await getConsultaById(room.consultaId)
+      if (!consulta || (decoded.id !== consulta.medicoId && decoded.id !== consulta.pacienteId)) {
+        ws.close(4003, 'forbidden')
+        return
+      }
     }
 
     // default client info; will be finalized on join message

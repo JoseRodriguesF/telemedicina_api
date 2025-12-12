@@ -4,7 +4,7 @@ type Participant = {
 }
 
 type RoomState = {
-  consultaId: number
+  consultaId: number | null
   participants: Participant[]
   createdAt: number
 }
@@ -26,6 +26,13 @@ export const Rooms = {
     const roomId = generateRoomId()
     rooms.set(roomId, { consultaId, participants: [], createdAt: Date.now() })
     return { roomId, created: true }
+  },
+
+  // Create a room not tied to any consulta
+  createStandalone(): { roomId: string } {
+    const roomId = generateRoomId()
+    rooms.set(roomId, { consultaId: null, participants: [], createdAt: Date.now() })
+    return { roomId }
   },
 
   get(roomId: string): RoomState | undefined {

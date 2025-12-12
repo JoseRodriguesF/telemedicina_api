@@ -5,6 +5,7 @@ import { getIceServersFromEnv, getIceServersFromXirsys } from '../services/iceSe
 
 type ParamsId = { id: string }
 type JoinBody = { userId: string | number; role?: 'medico' | 'paciente' }
+type CreateConsultaBody = { medicoId: number; pacienteId: number; status?: 'scheduled' | 'in_progress' | 'finished' }
 
 export async function createOrGetRoom(req: FastifyRequest<{ Params: ParamsId }>, reply: FastifyReply) {
   const id = Number(req.params.id)
@@ -88,4 +89,20 @@ export async function joinRoom(req: FastifyRequest<{ Params: ParamsId; Body: Joi
   const res = Rooms.addParticipant(roomId, { userId: req.body.userId, role: req.body.role })
   if (!res.ok) return reply.code(409).send({ error: res.reason })
   return reply.send({ roomId, participants: Rooms.listParticipants(roomId) })
+}
+
+// Novo fluxo: criar sala sem depender de consulta no DB
+export async function createRoomSimple(req: FastifyRequest, reply: FastifyReply) {
+  const user: any = (req as any).user
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  // Cria sala em memória com um roomId desvinculado de consulta
+  const { roomId } = Rooms.createStandalone()
+
+  // Obter iceServers como antes
+  let iceServers: any[] | null = getIceServersFromEnv()
+  if (!iceServers) iceServers = await getIceServersFromXirsys()
+  if (!iceServers) iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]
+
+  return reply.send({ roomId, iceServers })
 }

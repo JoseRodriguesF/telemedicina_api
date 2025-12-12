@@ -6,6 +6,7 @@ import { registerRoutes } from './routes/register';
 import { loginRoutes } from './routes/login';
 import { googleRoutes } from './routes/google';
 import consultasRoutes from './routes/consultas';
+import prontoSocorroRoutes from './routes/prontoSocorro';
 import { initSignalServer } from './server-signal';
 
 //carrega as variáveis de ambiente do arquivo .env
@@ -20,6 +21,7 @@ const start = async () => {
   await loginRoutes(server);
   await googleRoutes(server);
   await consultasRoutes(server);
+  await prontoSocorroRoutes(server);
 
   try {
     //Aguarda a inicialização do servidor na porta 3000

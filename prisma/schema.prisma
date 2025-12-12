@@ -97,13 +97,13 @@ enum ConsultaStatus {
 
 model Consulta {
   id          Int             @id @default(autoincrement())
-  medicoId    Int             @map("medico_id")
+  medicoId    Int?            @map("medico_id")
   pacienteId  Int             @map("paciente_id")
   status      ConsultaStatus
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
 
-  medico      Medico          @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
+  medico      Medico?         @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
   paciente    Paciente        @relation(name: "ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
 
   @@index([medicoId], name: "idx_consultas_medico_id")
