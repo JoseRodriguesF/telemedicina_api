@@ -120,10 +120,9 @@ export async function claimConsulta(req: FastifyRequest<{ Params: { consultaId: 
     return reply.code(409).send({ error: res.error })
   }
 
-  // atualizar fila: remover para não aparecer para outros médicos
+  // Remoção best-effort da fila em memória (não bloqueante)
   const idx = fila.findIndex(f => f.consultaId === consultaId)
-  if (idx === -1) return reply.code(404).send({ error: 'fila_item_not_found' })
-  fila.splice(idx, 1)
+  if (idx >= 0) fila.splice(idx, 1)
 
   // obter roomId vinculado
   const { roomId } = Rooms.createOrGet(consultaId)
@@ -133,7 +132,7 @@ export async function claimConsulta(req: FastifyRequest<{ Params: { consultaId: 
   if (!iceServers) iceServers = await getIceServersFromXirsys()
   if (!iceServers) iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]
 
-  req.log.info({ route: '/ps/fila/:consultaId/claim', consultaId, medicoId: medico.id, roomId }, 'consulta_claimed_and_room_ready')
+  req.log.info({ route: '/ps/fila/:consultaId/claim', consultaId, medicoId: medico.id, roomId }, 'consulta_claimed_and_room_ready_db_backed_queue')
   return reply.send({ roomId, consultaId, iceServers })
 }
 

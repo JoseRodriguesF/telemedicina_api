@@ -20,15 +20,17 @@ export async function createConsulta(data: { medicoId: number | null; pacienteId
 }
 
 export async function claimConsultaByMedico(consultaId: number, medicoId: number) {
-  // prevent double claim: only allow if medicoId is null and status is scheduled
-  const consulta = await prisma.consulta.findUnique({ where: { id: consultaId } })
-  if (!consulta) return { ok: false, error: 'consulta_not_found' }
-  if (consulta.medicoId !== null || consulta.status !== 'scheduled') {
-    return { ok: false, error: 'already_claimed_or_in_progress' }
-  }
-  const updated = await prisma.consulta.update({
-    where: { id: consultaId },
+  // Atomic claim: update only if still scheduled and unassigned
+  const res = await prisma.consulta.updateMany({
+    where: { id: consultaId, medicoId: null, status: 'scheduled' },
     data: { medicoId, status: 'in_progress' }
   })
+  if (res.count === 0) {
+    // Either not found, already claimed, or not scheduled
+    const exists = await prisma.consulta.findUnique({ where: { id: consultaId } })
+    if (!exists) return { ok: false, error: 'consulta_not_found' }
+    return { ok: false, error: 'already_claimed_or_in_progress' }
+  }
+  const updated = await prisma.consulta.findUnique({ where: { id: consultaId } })
   return { ok: true, consulta: updated }
 }
