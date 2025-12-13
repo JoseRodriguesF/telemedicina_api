@@ -57,9 +57,32 @@ export async function listarFila(req: FastifyRequest, reply: FastifyReply) {
     req.log.warn({ route: '/ps/fila' }, 'unauthorized_missing_user_in_request')
     return reply.code(401).send({ error: 'unauthorized' })
   }
-  // opcional: validar role medico
-  req.log.info({ route: '/ps/fila', items: fila.length }, 'fila_listed')
-  return reply.send(fila)
+  // Apenas médicos deveriam consultar a fila (opcionalmente liberar para admin)
+  if (user.tipo_usuario !== 'medico') {
+    req.log.warn({ route: '/ps/fila', userId: user.id, tipo_usuario: user.tipo_usuario }, 'forbidden_only_medico_can_list_queue')
+    return reply.code(403).send({ error: 'forbidden_only_medico_can_list_queue' })
+  }
+
+  // Importante: a fila não pode depender de memória local (multi-pod/hibernação)
+  // Buscar diretamente do banco todas consultas agendadas sem médico associado
+  const consultas = await prisma.consulta.findMany({
+    where: { status: 'scheduled', medicoId: null },
+    select: { id: true, pacienteId: true }
+  })
+
+  const items = consultas.map(c => {
+    const { roomId } = Rooms.createOrGet(c.id)
+    return {
+      consultaId: c.id,
+      pacienteId: c.pacienteId,
+      roomId,
+      createdAt: Date.now(),
+      status: 'scheduled' as const
+    }
+  })
+
+  req.log.info({ route: '/ps/fila', items: items.length }, 'fila_listed_from_db')
+  return reply.send(items)
 }
 
 export async function claimConsulta(req: FastifyRequest<{ Params: { consultaId: string } }>, reply: FastifyReply) {
