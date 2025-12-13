@@ -44,10 +44,9 @@ export async function criarSalaConsulta(req: FastifyRequest, reply: FastifyReply
   if (!iceServers) iceServers = await getIceServersFromXirsys()
   if (!iceServers) iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]
 
-  // adicionar à fila (usar paciente.id, não usuario.id)
-  fila.push({ consultaId: consulta.id, pacienteId: paciente.id, roomId, createdAt: Date.now(), status: 'scheduled' })
+  // NÃO adicionar à fila em memória; a fila agora é buscada do banco
 
-  req.log.info({ route: '/ps/rooms', consultaId: consulta.id, pacienteId: paciente.id, roomId }, 'room_created_and_consulta_scheduled')
+  req.log.info({ route: '/ps/rooms', consultaId: consulta.id, pacienteId: paciente.id, roomId }, 'room_created_and_consulta_scheduled_db_backed_queue')
   return reply.send({ roomId, consultaId: consulta.id, iceServers })
 }
 
