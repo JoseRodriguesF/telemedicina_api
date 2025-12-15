@@ -75,15 +75,20 @@ export function initSignalServer(httpServer: Server) {
           // log when medico and paciente are both connected to the same room
           const participants = Rooms.listParticipants(info.roomId)
           const roles = participants.map(p => p.role)
-          const bothConnected = roles.includes('medico') && roles.includes('paciente') && participants.length === 2
+          // Consider both connected if we have exactly 2 participants,
+          // even if roles were not provided by the clients.
+          const bothConnected = participants.length === 2
           if (bothConnected) {
             const payload = {
+              level: 30,
               route: '/signal/join',
-              msg: 'medico_and_paciente_connected_same_room',
+              msg: roles.includes('medico') && roles.includes('paciente')
+                ? 'medico_and_paciente_connected_same_room'
+                : 'two_participants_connected_same_room',
               roomId: info.roomId,
               participants: participants.map(p => ({ userId: p.userId, role: p.role }))
             }
-            try { console.info(JSON.stringify(payload)) } catch { /* noop */ }
+            try { console.log(JSON.stringify(payload)) } catch { /* noop */ }
             // also notify both peers
             broadcastToRoom(info.roomId, null, { type: 'ready', roomId: info.roomId })
           }
