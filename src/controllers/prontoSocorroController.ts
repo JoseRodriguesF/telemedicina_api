@@ -133,6 +133,17 @@ export async function claimConsulta(req: FastifyRequest<{ Params: { consultaId: 
   if (!iceServers) iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]
 
   req.log.info({ route: '/ps/fila/:consultaId/claim', consultaId, medicoId: medico.id, roomId }, 'consulta_claimed_and_room_ready_db_backed_queue')
+  // Log explícito de pareamento médico/paciente na mesma sala (via HTTP flow)
+  try {
+    req.log.info({
+      route: '/ps/fila/:consultaId/claim',
+      msg: 'medico_and_paciente_connected_same_room',
+      consultaId,
+      medicoId: medico.id,
+      pacienteId: consulta.pacienteId,
+      roomId
+    })
+  } catch {}
   return reply.send({ roomId, consultaId, iceServers })
 }
 
