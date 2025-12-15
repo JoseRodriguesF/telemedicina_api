@@ -37,12 +37,12 @@ const registerMedicoSchema = z.object({
   nome_completo: z.string().min(1, 'Nome completo é obrigatório'),
   data_nascimento: z.string().refine((date) => !isNaN(Date.parse(date)), 'Data de nascimento inválida'),
   cpf: z.string().regex(/^\d{11}$/, 'CPF deve ter 11 dígitos numéricos'),
-  sexo: z.string().optional(),
+  sexo: z.string().min(1, 'Sexo é obrigatório'),
   crm: z.string().min(1, 'CRM é obrigatório'),
-  diploma_url: z.string().url().nullish(),
-  especializacao_url: z.string().url().nullish(),
-  assinatura_digital_url: z.string().url().nullish(),
-  seguro_responsabilidade_url: z.string().url().nullish()
+  diploma_url: z.string().url('URL do diploma inválida'),
+  especializacao_url: z.string().url('URL do diploma de especialista inválida').nullish(),
+  assinatura_digital_url: z.string().url('URL da assinatura digital inválida'),
+  seguro_responsabilidade_url: z.string().url('URL do seguro de responsabilidade inválida')
 });
 
 export class RegisterController {

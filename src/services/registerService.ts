@@ -32,11 +32,11 @@ export class RegisterService {
     sexo: string;
     estado_civil: string;
     telefone: string;
-    responsavel_legal?: string;
-    telefone_responsavel?: string;
-    convenio?: string;
-    numero_carteirinha?: string;
-    endereco?: { endereco: string; numero: number; complemento?: string };
+    responsavel_legal?: string | null;
+    telefone_responsavel?: string | null;
+    convenio?: string | null;
+    numero_carteirinha?: string | null;
+    endereco?: { endereco: string; numero: number; complemento?: string | null };
   }) {
     // Verificar se usuario existe e é paciente
     const user = await prisma.usuario.findUnique({ where: { id: data.usuario_id } });
@@ -86,7 +86,7 @@ export class RegisterService {
     }
   }
 
-  async createEndereco(data: { usuario_id: number; endereco: string; numero: number; complemento?: string }) {
+  async createEndereco(data: { usuario_id: number; endereco: string; numero: number; complemento?: string | null }) {
     try {
       const endereco = await prisma.endereco.create({
         data: {
@@ -108,12 +108,12 @@ export class RegisterService {
     nome_completo: string;
     data_nascimento: string;
     cpf: string;
-    sexo?: string;
+    sexo: string;
     crm: string;
-    diploma_url?: string;
-    especializacao_url?: string;
-    assinatura_digital_url?: string;
-    seguro_responsabilidade_url?: string;
+    diploma_url: string;
+    especializacao_url?: string | null;
+    assinatura_digital_url: string;
+    seguro_responsabilidade_url: string;
   }) {
     // Verificar se usuario existe e é medico
     const user = await prisma.usuario.findUnique({ where: { id: data.usuario_id } });
