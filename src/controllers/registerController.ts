@@ -21,14 +21,14 @@ const registerPersonalSchema = z.object({
   sexo: z.string().min(1, 'Sexo é obrigatório'),
   estado_civil: z.string().min(1, 'Estado civil é obrigatório'),
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
-  responsavel_legal: z.string().optional(),
-  telefone_responsavel: z.string().optional(),
-  convenio: z.string().optional(),
-  numero_carteirinha: z.string().optional(),
+  responsavel_legal: z.string().nullish(),
+  telefone_responsavel: z.string().nullish(),
+  convenio: z.string().nullish(),
+  numero_carteirinha: z.string().nullish(),
   endereco: z.object({
     endereco: z.string().min(1, 'Endereço é obrigatório'),
     numero: z.number().int().nonnegative('Número inválido'),
-    complemento: z.string().optional()
+    complemento: z.string().nullish()
   })
 });
 
@@ -39,10 +39,10 @@ const registerMedicoSchema = z.object({
   cpf: z.string().regex(/^\d{11}$/, 'CPF deve ter 11 dígitos numéricos'),
   sexo: z.string().optional(),
   crm: z.string().min(1, 'CRM é obrigatório'),
-  diploma_url: z.string().url().optional(),
-  especializacao_url: z.string().url().optional(),
-  assinatura_digital_url: z.string().url().optional(),
-  seguro_responsabilidade_url: z.string().url().optional()
+  diploma_url: z.string().url().nullish(),
+  especializacao_url: z.string().url().nullish(),
+  assinatura_digital_url: z.string().url().nullish(),
+  seguro_responsabilidade_url: z.string().url().nullish()
 });
 
 export class RegisterController {
