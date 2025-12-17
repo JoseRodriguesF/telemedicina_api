@@ -48,6 +48,19 @@ export class GoogleAuthService {
         verificacao
       };
     } catch (err: any) {
+      // Log detalhado para diagnosticar falhas de verificação do ID token
+      try {
+        const decoded = jwt.decode(idToken) as any | null;
+        console.error(JSON.stringify({
+          action: 'google_token_verify_failed',
+          method: 'loginWithGoogle',
+          message: err?.message,
+          stack: err?.stack,
+          decodedPayload: decoded ? { aud: decoded.aud, iss: decoded.iss, exp: decoded.exp, sub: decoded.sub, email: decoded.email } : null
+        }));
+      } catch (logErr) {
+        console.error('google_token_verify_failed (unable to decode token)', logErr);
+      }
       if (err instanceof ApiError) throw err;
       throw new ApiError('Failed to verify Google token', 401, 'INVALID_GOOGLE_TOKEN', err?.message);
     }
@@ -100,6 +113,19 @@ export class GoogleAuthService {
         nome
       };
     } catch (err: any) {
+      // Log detalhado para diagnosticar falhas de verificação do ID token
+      try {
+        const decoded = jwt.decode(idToken) as any | null;
+        console.error(JSON.stringify({
+          action: 'google_token_verify_failed',
+          method: 'registerWithGoogle',
+          message: err?.message,
+          stack: err?.stack,
+          decodedPayload: decoded ? { aud: decoded.aud, iss: decoded.iss, exp: decoded.exp, sub: decoded.sub, email: decoded.email } : null
+        }));
+      } catch (logErr) {
+        console.error('google_token_verify_failed (unable to decode token)', logErr);
+      }
       if (err instanceof ApiError) throw err;
       throw new ApiError('Failed to verify Google token', 401, 'INVALID_GOOGLE_TOKEN', err?.message);
     }
