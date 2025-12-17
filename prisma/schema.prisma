@@ -32,8 +32,6 @@ model Paciente {
   telefone             String   @db.VarChar(11)
   responsavel_legal    String?  @db.VarChar(255)
   telefone_responsavel String?  @db.VarChar(20)
-  convenio             String?  @db.VarChar(255)
-  numero_carteirinha   String?  @db.VarChar(50)
   usuario              Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   consultas            Consulta[] @relation("ConsultaPaciente")
 
