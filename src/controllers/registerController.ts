@@ -23,8 +23,6 @@ const registerPersonalSchema = z.object({
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
   responsavel_legal: z.string().nullish(),
   telefone_responsavel: z.string().nullish(),
-  convenio: z.string().nullish(),
-  numero_carteirinha: z.string().nullish(),
   endereco: z.object({
     endereco: z.string().min(1, 'Endereço é obrigatório'),
     numero: z.number().int().nonnegative('Número inválido'),

@@ -34,8 +34,6 @@ export class RegisterService {
     telefone: string;
     responsavel_legal?: string | null;
     telefone_responsavel?: string | null;
-    convenio?: string | null;
-    numero_carteirinha?: string | null;
     endereco?: { endereco: string; numero: number; complemento?: string | null };
   }) {
     // Verificar se usuario existe e é paciente
@@ -70,9 +68,7 @@ export class RegisterService {
           estado_civil: data.estado_civil,
           telefone: data.telefone,
           responsavel_legal: data.responsavel_legal,
-          telefone_responsavel: data.telefone_responsavel,
-          convenio: data.convenio,
-          numero_carteirinha: data.numero_carteirinha
+          telefone_responsavel: data.telefone_responsavel
         }
       });
 
