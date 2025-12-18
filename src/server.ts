@@ -8,6 +8,7 @@ import { googleRoutes } from './routes/google';
 import consultasRoutes from './routes/consultas';
 import prontoSocorroRoutes from './routes/prontoSocorro';
 import { initSignalServer } from './server-signal';
+import { openaiRoutes } from './routes/openai';
 
 //carrega as variáveis de ambiente do arquivo .env
 dotenv.config();
@@ -22,6 +23,7 @@ const start = async () => {
   await googleRoutes(server);
   await consultasRoutes(server);
   await prontoSocorroRoutes(server);
+  await openaiRoutes(server);
 
   try {
     //Aguarda a inicialização do servidor na porta 3000
