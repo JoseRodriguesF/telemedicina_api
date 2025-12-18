@@ -16,10 +16,7 @@ export interface ChatMessage {
   content: string
 }
 
-// Histórico em memória por usuário (id do usuário autenticado)
-const conversations = new Map<number, ChatMessage[]>()
-
-export async function chatWithOpenAI(userId: number, message: string, nomePaciente: string | null = null) {
+export async function chatWithOpenAI(message: string, nomePaciente: string | null = null, history: ChatMessage[] = []) {
   const nomeTexto = nomePaciente ? `O nome do paciente é ${nomePaciente}.` : ''
   
   const promptComportamento = `Você é uma entrevistadora que trabalha em um Hospital. Seu nome é Angélica e seu trabalho é fazer perguntas estratégicas para coletar os dados
@@ -57,15 +54,12 @@ export async function chatWithOpenAI(userId: number, message: string, nomePacien
       -Vacinações/Imunizações/Vacinas/Imunizações
    `
 
-  // Recupera histórico anterior do usuário (se existir)
-  const history = conversations.get(userId) ?? []
-
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
     temperature: 0.3,
     messages: [
       { role: 'system', content: promptComportamento },
-      // histórico anterior
+      // histórico enviado pelo frontend (mantém contexto apenas durante a sessão)
       ...history.map((m) => ({ role: m.role, content: m.content })),
       // nova mensagem do usuário
       { role: 'user', content: message }
@@ -87,13 +81,5 @@ export async function chatWithOpenAI(userId: number, message: string, nomePacien
       .join('\n')
   }
 
-  // Atualiza histórico do usuário: adiciona pergunta e resposta
-  const newHistory: ChatMessage[] = [
-    ...history,
-    { role: 'user', content: message },
-    { role: 'assistant', content: answer }
-  ]
-  conversations.set(userId, newHistory)
-
-  return { answer, history: newHistory }
+  return answer
 }

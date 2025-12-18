@@ -2,16 +2,24 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { chatWithOpenAI } from '../services/openaiService'
 import prisma from '../config/database'
 
+import { ChatMessage } from '../services/openaiService'
+
 interface ChatBody {
   message: string
+  history?: ChatMessage[] // Histórico opcional enviado pelo frontend
 }
 
 export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody }>, reply: FastifyReply) {
   try {
-    const { message } = req.body
+    const { message, history = [] } = req.body
 
     if (!message || typeof message !== 'string') {
       return reply.code(400).send({ error: 'message é obrigatório e deve ser string' })
+    }
+
+    // Validar formato do histórico se fornecido
+    if (history && (!Array.isArray(history) || !history.every(m => m.role && m.content))) {
+      return reply.code(400).send({ error: 'history deve ser um array de mensagens com role e content' })
     }
 
     const user: any = (req as any).user
@@ -28,9 +36,8 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
       nomePaciente = paciente?.nome_completo || null
     }
 
-    const { answer } = await chatWithOpenAI(user.id, message, nomePaciente)
+    const answer = await chatWithOpenAI(message, nomePaciente, history || [])
 
-    // Histórico é mantido apenas no servidor para contexto da IA
     return reply.send({ answer })
   } catch (err: any) {
     console.error('Erro ao chamar OpenAI:', err)
