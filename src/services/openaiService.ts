@@ -43,6 +43,7 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
       -Você deve formatar as respostas do paciente para o dialéto clínico brasileiro. Mas sem tirar a essência da resposta. Isso significa que você deve manter a
       essencia da resposta e o contexto mas corrija ortografia e passe para o dialéto clínico brasileiro.
       -Seja sempre educada e profissional. Caso o paciente tente sair do contexto da entrevista, você deve manter o foco na entrevista e continuar as perguntas.
+      -IMPORTANTE: Quando você tiver coletado TODOS os dados necessários listados acima (queixa principal, descrição/sintomas, histórico médico, antecedentes familiares, estilo de vida e vacinações), você DEVE finalizar a triagem dizendo algo como "Obrigada pelas informações! Sua triagem foi concluída e você já pode prosseguir para a consulta." e adicionar no FINAL da sua resposta APENAS a marcação [TRIAGEM_CONCLUIDA] sem espaços ou texto adicional após ela.
 
     *Dados que você deve coletar:*
 
@@ -81,5 +82,11 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
       .join('\n')
   }
 
-  return answer
+  // Detectar se a triagem foi concluída (IA adicionou [TRIAGEM_CONCLUIDA] no final)
+  const completed = answer.includes('[TRIAGEM_CONCLUIDA]')
+  
+  // Remover a marcação da resposta antes de retornar
+  const cleanAnswer = answer.replace(/\[TRIAGEM_CONCLUIDA\]/g, '').trim()
+
+  return { answer: cleanAnswer, completed }
 }

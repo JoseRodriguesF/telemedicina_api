@@ -36,9 +36,9 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
       nomePaciente = paciente?.nome_completo || null
     }
 
-    const answer = await chatWithOpenAI(message, nomePaciente, history || [])
+    const { answer, completed } = await chatWithOpenAI(message, nomePaciente, history || [])
 
-    return reply.send({ answer })
+    return reply.send({ answer, completed })
   } catch (err: any) {
     console.error('Erro ao chamar OpenAI:', err)
     return reply.code(500).send({ error: 'erro_ao_chamar_openai' })
