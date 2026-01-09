@@ -49,29 +49,9 @@ export async function listParticipants(req: FastifyRequest<{ Params: ParamsId }>
 
   // encontrar room associado à consulta
   let roomId: string | undefined = Rooms.findRoomIdByConsulta(id)
-  const roomExists = !!roomId
-  
-  // Se sala não existe, criar uma nova (mas não adicionar participantes ainda)
-  if (!roomId) {
-    const { roomId: newRoomId } = Rooms.createOrGet(id)
-    roomId = newRoomId
-  }
-  
+  if (!roomId) roomId = Rooms.createOrGet(id).roomId
   const participants = Rooms.listParticipants(roomId!)
-  const room = Rooms.get(roomId!)
-  
-  // Verificar se o usuário atual está na lista de participantes
-  const isParticipant = participants.some(p => p.userId === user.id)
-  
-  return reply.send({ 
-    roomId, 
-    participants,
-    participantCount: participants.length,
-    roomExists,
-    isParticipant,
-    consultaStatus: consulta.status,
-    canJoin: consulta.status === 'in_progress' || consulta.status === 'scheduled'
-  })
+  return reply.send({ roomId, participants })
 }
 
 export async function endConsulta(req: FastifyRequest<{ Params: ParamsId }>, reply: FastifyReply) {
@@ -85,40 +65,15 @@ export async function endConsulta(req: FastifyRequest<{ Params: ParamsId }>, rep
     return reply.code(403).send({ error: 'forbidden' })
   }
 
-  // Verificar se consulta já está finalizada
-  if (consulta.status === 'finished') {
-    return reply.code(409).send({ 
-      error: 'consulta_already_finished',
-      message: 'Esta consulta já foi finalizada anteriormente.'
-    })
-  }
+  // localizar room e encerrar
+  let roomId: string | undefined
+  // Rooms não expõe internamente o map; manter referência via createOrGet
+  const { roomId: rid } = Rooms.createOrGet(id)
+  roomId = rid
+  Rooms.end(roomId)
 
-  // localizar room e verificar participantes antes de encerrar
-  let roomId: string | undefined = Rooms.findRoomIdByConsulta(id)
-  let participantsBeforeEnd: any[] = []
-  
-  if (roomId) {
-    participantsBeforeEnd = Rooms.listParticipants(roomId)
-    // Encerrar sala (remove todos os participantes e fecha a sala)
-    Rooms.end(roomId)
-  } else {
-    // Se sala não existe, criar temporariamente para obter referência
-    const { roomId: tempRoomId } = Rooms.createOrGet(id)
-    roomId = tempRoomId
-    Rooms.end(roomId)
-  }
-
-  // Atualizar status da consulta para finished
   await updateConsultaStatus(id, 'finished')
-  
-  return reply.send({ 
-    ok: true,
-    message: 'Consulta finalizada com sucesso.',
-    roomId: roomId || null,
-    participantsBeforeEnd,
-    consultaId: id,
-    finishedBy: user.id
-  })
+  return reply.send({ ok: true })
 }
 
 export async function joinRoom(req: FastifyRequest<{ Params: ParamsId; Body: JoinBody }>, reply: FastifyReply) {
@@ -150,39 +105,4 @@ export async function createRoomSimple(req: FastifyRequest, reply: FastifyReply)
   if (!iceServers) iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]
 
   return reply.send({ roomId, iceServers })
-}
-
-export async function getRoomStatus(req: FastifyRequest<{ Params: ParamsId }>, reply: FastifyReply) {
-  const id = Number(req.params.id)
-  if (Number.isNaN(id)) return reply.code(400).send({ error: 'invalid_consulta_id' })
-  
-  const consulta = await getConsultaById(id)
-  if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
-  
-  const user: any = (req as any).user
-  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
-    return reply.code(403).send({ error: 'forbidden' })
-  }
-  
-  const roomId = Rooms.findRoomIdByConsulta(id)
-  if (!roomId) {
-    return reply.send({ 
-      exists: false, 
-      canReconnect: consulta.status === 'in_progress',
-      message: 'Sala não existe. Pode criar nova sala se consulta estiver em andamento.',
-      consultaStatus: consulta.status
-    })
-  }
-  
-  const participants = Rooms.listParticipants(roomId)
-  const isParticipant = participants.some(p => p.userId === user.id)
-  
-  return reply.send({
-    exists: true,
-    roomId,
-    canReconnect: consulta.status === 'in_progress', // Só pode reconectar se consulta está em andamento
-    participants,
-    isParticipant,
-    consultaStatus: consulta.status
-  })
 }

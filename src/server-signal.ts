@@ -133,20 +133,8 @@ export function initSignalServer(httpServer: Server) {
     ws.on('close', () => {
       const info = clients.get(ws)
       if (!info) return
-      
-      // Remover participante da sala quando desconectar (desconexão acidental)
-      // IMPORTANTE: Não fechar a sala aqui, apenas remover o participante
-      // A sala só é fechada quando recebe mensagem 'end' (encerramento intencional)
-      if (info.role) {
-        Rooms.removeParticipant(info.roomId, info.userId)
-      }
-      
       clients.delete(ws)
-      broadcastToRoom(info.roomId, ws, { 
-        type: 'peer-left', 
-        userId: info.userId,
-        role: info.role 
-      })
+      broadcastToRoom(info.roomId, ws, { type: 'peer-left', userId: info.userId })
     })
   })
 
