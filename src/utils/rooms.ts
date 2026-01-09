@@ -64,6 +64,17 @@ export const Rooms = {
     return rooms.get(roomId)?.participants ?? []
   },
 
+  removeParticipant(roomId: string, userId: string | number): { ok: boolean; reason?: string } {
+    const state = rooms.get(roomId)
+    if (!state) return { ok: false, reason: 'room_not_found' }
+    const index = state.participants.findIndex(p => p.userId === userId)
+    if (index >= 0) {
+      state.participants.splice(index, 1)
+      return { ok: true }
+    }
+    return { ok: false, reason: 'participant_not_found' }
+  },
+
   end(roomId: string): void {
     rooms.delete(roomId)
   }
