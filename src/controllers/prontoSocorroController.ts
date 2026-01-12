@@ -1,3 +1,36 @@
+export async function listarSalasEmAndamento(req: FastifyRequest, reply: FastifyReply) {
+  const user: any = (req as any).user
+  if (!user) {
+    req.log.warn({ route: '/ps/salas-em-andamento' }, 'unauthorized_missing_user_in_request')
+    return reply.code(401).send({ error: 'unauthorized' })
+  }
+  // Apenas médicos deveriam consultar as salas em andamento (opcionalmente liberar para admin)
+  if (user.tipo_usuario !== 'medico') {
+    req.log.warn({ route: '/ps/salas-em-andamento', userId: user.id, tipo_usuario: user.tipo_usuario }, 'forbidden_only_medico_can_list_in_progress_rooms')
+    return reply.code(403).send({ error: 'forbidden_only_medico_can_list_in_progress_rooms' })
+  }
+
+  // Buscar diretamente do banco todas consultas em andamento
+  const consultas = await prisma.consulta.findMany({
+    where: { status: 'in_progress' },
+    select: { id: true, pacienteId: true, medicoId: true }
+  })
+
+  const items = consultas.map(c => {
+    const { roomId } = Rooms.createOrGet(c.id)
+    return {
+      consultaId: c.id,
+      pacienteId: c.pacienteId,
+      medicoId: c.medicoId,
+      roomId,
+      createdAt: Date.now(),
+      status: 'in_progress' as const
+    }
+  })
+
+  req.log.info({ route: '/ps/salas-em-andamento', items: items.length }, 'in_progress_rooms_listed_from_db')
+  return reply.send(items)
+}
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { Rooms } from '../utils/rooms'
 import { getIceServersFromEnv, getIceServersFromXirsys } from '../services/iceServers'
