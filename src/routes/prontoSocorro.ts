@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { authenticateJWT } from '../middlewares/auth'
-import { claimConsulta, criarSalaConsulta, listarFila } from '../controllers/prontoSocorroController'
+import { claimConsulta, criarSalaConsulta, listarFila, listarSalasEmAndamento } from '../controllers/prontoSocorroController'
 
 export default async function prontoSocorroRoutes(fastify: FastifyInstance) {
   fastify.route({ method: 'POST', url: '/ps/rooms', preHandler: authenticateJWT, handler: criarSalaConsulta })
