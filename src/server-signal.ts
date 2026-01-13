@@ -84,7 +84,12 @@ export function initSignalServer(httpServer: Server) {
             return
           }
           clients.set(ws, { ...info, role: msg.role })
-          ws.send(JSON.stringify({ type: 'joined', roomId: info.roomId }))
+          const participantsList = Rooms.listParticipants(info.roomId)
+          ws.send(JSON.stringify({
+            type: 'joined',
+            roomId: info.roomId,
+            participants: participantsList.map(p => ({ userId: p.userId, role: p.role }))
+          }))
           // notify others
           broadcastToRoom(info.roomId, ws, { type: 'peer-joined', userId: info.userId, role: msg.role })
           // log when medico and paciente are both connected to the same room
@@ -134,6 +139,7 @@ export function initSignalServer(httpServer: Server) {
       const info = clients.get(ws)
       if (!info) return
       clients.delete(ws)
+      Rooms.removeParticipant(info.roomId, info.userId)
       broadcastToRoom(info.roomId, ws, { type: 'peer-left', userId: info.userId })
     })
   })

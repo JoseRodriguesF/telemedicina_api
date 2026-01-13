@@ -64,6 +64,12 @@ export const Rooms = {
     return rooms.get(roomId)?.participants ?? []
   },
 
+  removeParticipant(roomId: string, userId: string | number): void {
+    const state = rooms.get(roomId)
+    if (!state) return
+    state.participants = state.participants.filter(p => p.userId !== userId)
+  },
+
   end(roomId: string): void {
     rooms.delete(roomId)
   }
