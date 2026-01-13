@@ -34,7 +34,7 @@ export async function listarSalasEmAndamento(req: FastifyRequest, reply: Fastify
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { Rooms } from '../utils/rooms'
 import { getIceServersFromEnv, getIceServersFromXirsys } from '../services/iceServers'
-import { createConsulta, getConsultaById, updateConsultaStatus, claimConsultaByMedico } from '../services/consultasService'
+import { createConsulta, getConsultaById, updateConsultaStatus, claimConsultaByMedico, reconnectConsultaByPaciente } from '../services/consultasService'
 import prisma from '../config/database'
 
 type FilaItem = {
@@ -134,34 +134,43 @@ export async function claimConsulta(req: FastifyRequest<{ Params: { consultaId: 
     req.log.warn({ route: '/ps/fila/:consultaId/claim' }, 'unauthorized_missing_user_in_request')
     return reply.code(401).send({ error: 'unauthorized' })
   }
-  // Apenas médicos podem fazer claim de consultas
-  if (user.tipo_usuario !== 'medico') {
-    req.log.warn({ route: '/ps/fila/:consultaId/claim', userId: user.id, tipo_usuario: user.tipo_usuario }, 'forbidden_only_medico_can_claim')
-    return reply.code(403).send({ error: 'forbidden_only_medico_can_claim' })
-  }
+
   const consultaId = Number(req.params.consultaId)
   if (Number.isNaN(consultaId)) {
     req.log.warn({ route: '/ps/fila/:consultaId/claim', rawConsultaId: req.params.consultaId }, 'invalid_consulta_id')
     return reply.code(400).send({ error: 'invalid_consulta_id' })
   }
+
   const consulta = await getConsultaById(consultaId)
   if (!consulta) {
     req.log.warn({ route: '/ps/fila/:consultaId/claim', consultaId }, 'consulta_not_found')
     return reply.code(404).send({ error: 'consulta_not_found' })
   }
 
-  // Mapear usuario.id -> medico.id
-  const medico = await prisma.medico.findUnique({ where: { usuario_id: user.id } })
-  if (!medico) {
-    req.log.error({ route: '/ps/fila/:consultaId/claim', usuarioId: user.id }, 'medico_record_not_found_for_usuario')
-    return reply.code(409).send({ error: 'medico_record_not_found_for_usuario' })
+  let result: any;
+
+  if (user.tipo_usuario === 'medico') {
+    const medico = await prisma.medico.findUnique({ where: { usuario_id: user.id } })
+    if (!medico) {
+      req.log.error({ route: '/ps/fila/:consultaId/claim', usuarioId: user.id }, 'medico_record_not_found_for_usuario')
+      return reply.code(409).send({ error: 'medico_record_not_found_for_usuario' })
+    }
+    result = await claimConsultaByMedico(consultaId, medico.id)
+  } else if (user.tipo_usuario === 'paciente') {
+    const paciente = await prisma.paciente.findUnique({ where: { usuario_id: user.id } })
+    if (!paciente) {
+      req.log.error({ route: '/ps/fila/:consultaId/claim', usuarioId: user.id }, 'paciente_record_not_found_for_usuario')
+      return reply.code(409).send({ error: 'paciente_record_not_found_for_usuario' })
+    }
+    result = await reconnectConsultaByPaciente(consultaId, paciente.id)
+  } else {
+    req.log.warn({ route: '/ps/fila/:consultaId/claim', userId: user.id, tipo_usuario: user.tipo_usuario }, 'forbidden_user_type_claim')
+    return reply.code(403).send({ error: 'forbidden' })
   }
 
-  // associar médico e marcar in_progress com proteção de duplo claim
-  const res = await claimConsultaByMedico(consultaId, medico.id)
-  if (!res.ok) {
-    req.log.warn({ route: '/ps/fila/:consultaId/claim', consultaId, medicoId: medico.id, reason: res.error }, 'claim_failed')
-    return reply.code(409).send({ error: res.error })
+  if (!result.ok) {
+    req.log.warn({ route: '/ps/fila/:consultaId/claim', consultaId, userId: user.id, reason: result.error }, 'access_failed')
+    return reply.code(409).send({ error: result.error })
   }
 
   // Remoção best-effort da fila em memória (não bloqueante)
@@ -176,18 +185,7 @@ export async function claimConsulta(req: FastifyRequest<{ Params: { consultaId: 
   if (!iceServers) iceServers = await getIceServersFromXirsys()
   if (!iceServers) iceServers = [{ urls: 'stun:stun.l.google.com:19302' }]
 
-  req.log.info({ route: '/ps/fila/:consultaId/claim', consultaId, medicoId: medico.id, roomId }, 'consulta_claimed_and_room_ready_db_backed_queue')
-  // Log explícito de pareamento médico/paciente na mesma sala (via HTTP flow)
-  try {
-    req.log.info({
-      route: '/ps/fila/:consultaId/claim',
-      msg: 'medico_and_paciente_connected_same_room',
-      consultaId,
-      medicoId: medico.id,
-      pacienteId: consulta.pacienteId,
-      roomId
-    })
-  } catch { }
+  req.log.info({ route: '/ps/fila/:consultaId/claim', consultaId, userId: user.id, roomId }, 'consulta_joined_ready')
   return reply.send({ roomId, consultaId, iceServers })
 }
 

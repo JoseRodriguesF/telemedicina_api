@@ -45,3 +45,18 @@ export async function claimConsultaByMedico(consultaId: number, medicoId: number
   const updated = await prisma.consulta.findUnique({ where: { id: consultaId } })
   return { ok: true, consulta: updated }
 }
+
+export async function reconnectConsultaByPaciente(consultaId: number, pacienteId: number) {
+  const exists = await prisma.consulta.findUnique({ where: { id: consultaId } })
+
+  if (!exists) {
+    return { ok: false, error: 'consulta_not_found' }
+  }
+
+  // Permitir reconexão: se o paciente tentando é o dono da consulta e ela está ativa
+  if (exists.pacienteId === pacienteId && (exists.status === 'scheduled' || exists.status === 'in_progress')) {
+    return { ok: true, consulta: exists }
+  }
+
+  return { ok: false, error: 'already_claimed_or_in_progress' }
+}
