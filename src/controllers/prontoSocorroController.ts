@@ -66,8 +66,19 @@ export async function criarSalaConsulta(req: FastifyRequest, reply: FastifyReply
     return reply.code(409).send({ error: 'paciente_record_not_found_for_usuario' })
   }
 
-  // cria consulta com paciente e status scheduled; medico_id será definido no claim
-  const consulta = await createConsulta({ medicoId: null as any, pacienteId: paciente.id, status: 'scheduled' })
+  // Verificar se já existe uma consulta ativa (para permitir reconexão)
+  let consulta = await prisma.consulta.findFirst({
+    where: {
+      pacienteId: paciente.id,
+      status: { in: ['scheduled', 'in_progress'] }
+    },
+    orderBy: { id: 'desc' }
+  })
+
+  if (!consulta) {
+    // cria consulta com paciente e status scheduled; medico_id será definido no claim
+    consulta = await createConsulta({ medicoId: null as any, pacienteId: paciente.id, status: 'scheduled' })
+  }
 
   // cria sala vinculada à consulta
   const { roomId } = Rooms.createOrGet(consulta.id)
@@ -176,7 +187,7 @@ export async function claimConsulta(req: FastifyRequest<{ Params: { consultaId: 
       pacienteId: consulta.pacienteId,
       roomId
     })
-  } catch {}
+  } catch { }
   return reply.send({ roomId, consultaId, iceServers })
 }
 
