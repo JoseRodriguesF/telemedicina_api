@@ -1,18 +1,47 @@
-export async function listarSalasEmAndamento(req: FastifyRequest, reply: FastifyReply) {
+import { FastifyReply, FastifyRequest } from 'fastify'
+import { Rooms } from '../utils/rooms'
+import { getIceServersFromEnv, getIceServersFromXirsys } from '../services/iceServers'
+import { createConsulta, getConsultaById, updateConsultaStatus, claimConsultaByMedico, reconnectConsultaByPaciente } from '../services/consultasService'
+import prisma from '../config/database'
+
+export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: { userId?: string } }>, reply: FastifyReply) {
   const user: any = (req as any).user
   if (!user) {
     req.log.warn({ route: '/ps/salas-em-andamento' }, 'unauthorized_missing_user_in_request')
     return reply.code(401).send({ error: 'unauthorized' })
   }
-  // Apenas médicos deveriam consultar as salas em andamento (opcionalmente liberar para admin)
-  if (user.tipo_usuario !== 'medico') {
-    req.log.warn({ route: '/ps/salas-em-andamento', userId: user.id, tipo_usuario: user.tipo_usuario }, 'forbidden_only_medico_can_list_in_progress_rooms')
-    return reply.code(403).send({ error: 'forbidden_only_medico_can_list_in_progress_rooms' })
+
+  // Médicos e Admin podem ver tudo ou filtrar. Pacientes podem ver as deles.
+  if (user.tipo_usuario !== 'medico' && user.tipo_usuario !== 'admin' && user.tipo_usuario !== 'paciente') {
+    req.log.warn({ route: '/ps/salas-em-andamento', userId: user.id, tipo_usuario: user.tipo_usuario }, 'forbidden_user_type_list_rooms')
+    return reply.code(403).send({ error: 'forbidden' })
   }
 
-  // Buscar diretamente do banco todas consultas em andamento
+  const { userId } = req.query
+  const where: any = { status: 'in_progress' }
+
+  if (userId) {
+    const id = Number(userId)
+    if (isNaN(id)) {
+      return reply.code(400).send({ error: 'invalid_id_parameter' })
+    }
+    // Busca direta pelos IDs de paciente ou médico na tabela de consultas
+    where.OR = [
+      { pacienteId: id },
+      { medicoId: id }
+    ]
+  } else if (user.tipo_usuario === 'paciente') {
+    // Se for paciente e não passou filtro, busca o ID de paciente dele para filtrar
+    const paciente = await prisma.paciente.findUnique({ where: { usuario_id: user.id } })
+    if (!paciente) {
+      return reply.send([])
+    }
+    where.pacienteId = paciente.id
+  }
+
+  // Buscar diretamente do banco todas consultas em andamento com o filtro
   const consultas = await prisma.consulta.findMany({
-    where: { status: 'in_progress' },
+    where,
     select: { id: true, pacienteId: true, medicoId: true }
   })
 
@@ -28,14 +57,9 @@ export async function listarSalasEmAndamento(req: FastifyRequest, reply: Fastify
     }
   })
 
-  req.log.info({ route: '/ps/salas-em-andamento', items: items.length }, 'in_progress_rooms_listed_from_db')
+  req.log.info({ route: '/ps/salas-em-andamento', items: items.length, userIdRequested: userId }, 'in_progress_rooms_listed_from_db')
   return reply.send(items)
 }
-import { FastifyReply, FastifyRequest } from 'fastify'
-import { Rooms } from '../utils/rooms'
-import { getIceServersFromEnv, getIceServersFromXirsys } from '../services/iceServers'
-import { createConsulta, getConsultaById, updateConsultaStatus, claimConsultaByMedico, reconnectConsultaByPaciente } from '../services/consultasService'
-import prisma from '../config/database'
 
 type FilaItem = {
   consultaId: number
