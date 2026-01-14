@@ -4,7 +4,7 @@ import { getIceServersFromEnv, getIceServersFromXirsys } from '../services/iceSe
 import { createConsulta, getConsultaById, updateConsultaStatus, claimConsultaByMedico, reconnectConsultaByPaciente } from '../services/consultasService'
 import prisma from '../config/database'
 
-export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: { pacienteId?: string, medicoId?: string } }>, reply: FastifyReply) {
+export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: { userId?: string } }>, reply: FastifyReply) {
   const user: any = (req as any).user
   if (!user) {
     req.log.warn({ route: '/ps/salas-em-andamento' }, 'unauthorized_missing_user_in_request')
@@ -17,32 +17,35 @@ export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: 
     return reply.code(403).send({ error: 'forbidden' })
   }
 
-  const { pacienteId, medicoId } = req.query
+  const { userId } = req.query
   const where: any = { status: 'in_progress' }
 
-  // Filtros explícitos pelos IDs de perfil
-  if (pacienteId) {
-    const id = Number(pacienteId)
-    if (isNaN(id)) return reply.code(400).send({ error: 'invalid_paciente_id' })
-    where.pacienteId = id
-  }
+  if (userId) {
+    const id = Number(userId)
+    if (isNaN(id)) return reply.code(400).send({ error: 'invalid_user_id' })
 
-  if (medicoId) {
-    const id = Number(medicoId)
-    if (isNaN(id)) return reply.code(400).send({ error: 'invalid_medico_id' })
-    where.medicoId = id
-  }
+    // Busca quais IDs de perfil (paciente ou médico) estão vinculados a esse ID de USUÁRIO
+    const [paciente, medico] = await Promise.all([
+      prisma.paciente.findUnique({ where: { usuario_id: id }, select: { id: true } }),
+      prisma.medico.findUnique({ where: { usuario_id: id }, select: { id: true } })
+    ])
 
-  // Fallback de segurança para pacientes: se não filtrar por nada, filtrar por ele mesmo
-  if (!pacienteId && !medicoId && user.tipo_usuario === 'paciente') {
-    const paciente = await prisma.paciente.findUnique({ where: { usuario_id: user.id } })
-    if (!paciente) {
+    const orConditions = []
+    if (paciente) orConditions.push({ pacienteId: paciente.id })
+    if (medico) orConditions.push({ medicoId: medico.id })
+
+    // Se o usuário não existe como médico nem paciente, não haverá salas
+    if (orConditions.length === 0) {
       return reply.send([])
     }
+    where.OR = orConditions
+  } else if (user.tipo_usuario === 'paciente') {
+    // Se não passou filtro e é paciente, resolve o ID de perfil dele mesmo
+    const paciente = await prisma.paciente.findUnique({ where: { usuario_id: user.id } })
+    if (!paciente) return reply.send([])
     where.pacienteId = paciente.id
   }
 
-  // Buscar diretamente do banco todas consultas em andamento com o filtro
   const consultas = await prisma.consulta.findMany({
     where,
     select: { id: true, pacienteId: true, medicoId: true }
@@ -60,7 +63,7 @@ export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: 
     }
   })
 
-  req.log.info({ route: '/ps/salas-em-andamento', items: items.length, pacienteIdRequested: pacienteId, medicoIdRequested: medicoId }, 'in_progress_rooms_listed_from_db')
+  req.log.info({ route: '/ps/salas-em-andamento', items: items.length, requestedUserId: userId }, 'in_progress_rooms_listed_from_db')
   return reply.send(items)
 }
 
