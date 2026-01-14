@@ -4,7 +4,7 @@ import { getIceServersFromEnv, getIceServersFromXirsys } from '../services/iceSe
 import { createConsulta, getConsultaById, updateConsultaStatus, claimConsultaByMedico, reconnectConsultaByPaciente } from '../services/consultasService'
 import prisma from '../config/database'
 
-export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: { userId?: string } }>, reply: FastifyReply) {
+export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: { pacienteId?: string, medicoId?: string } }>, reply: FastifyReply) {
   const user: any = (req as any).user
   if (!user) {
     req.log.warn({ route: '/ps/salas-em-andamento' }, 'unauthorized_missing_user_in_request')
@@ -17,21 +17,24 @@ export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: 
     return reply.code(403).send({ error: 'forbidden' })
   }
 
-  const { userId } = req.query
+  const { pacienteId, medicoId } = req.query
   const where: any = { status: 'in_progress' }
 
-  if (userId) {
-    const id = Number(userId)
-    if (isNaN(id)) {
-      return reply.code(400).send({ error: 'invalid_id_parameter' })
-    }
-    // Busca direta pelos IDs de paciente ou médico na tabela de consultas
-    where.OR = [
-      { pacienteId: id },
-      { medicoId: id }
-    ]
-  } else if (user.tipo_usuario === 'paciente') {
-    // Se for paciente e não passou filtro, busca o ID de paciente dele para filtrar
+  // Filtros explícitos pelos IDs de perfil
+  if (pacienteId) {
+    const id = Number(pacienteId)
+    if (isNaN(id)) return reply.code(400).send({ error: 'invalid_paciente_id' })
+    where.pacienteId = id
+  }
+
+  if (medicoId) {
+    const id = Number(medicoId)
+    if (isNaN(id)) return reply.code(400).send({ error: 'invalid_medico_id' })
+    where.medicoId = id
+  }
+
+  // Fallback de segurança para pacientes: se não filtrar por nada, filtrar por ele mesmo
+  if (!pacienteId && !medicoId && user.tipo_usuario === 'paciente') {
     const paciente = await prisma.paciente.findUnique({ where: { usuario_id: user.id } })
     if (!paciente) {
       return reply.send([])
@@ -57,7 +60,7 @@ export async function listarSalasEmAndamento(req: FastifyRequest<{ Querystring: 
     }
   })
 
-  req.log.info({ route: '/ps/salas-em-andamento', items: items.length, userIdRequested: userId }, 'in_progress_rooms_listed_from_db')
+  req.log.info({ route: '/ps/salas-em-andamento', items: items.length, pacienteIdRequested: pacienteId, medicoIdRequested: medicoId }, 'in_progress_rooms_listed_from_db')
   return reply.send(items)
 }
 
