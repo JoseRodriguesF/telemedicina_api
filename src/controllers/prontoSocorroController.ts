@@ -278,3 +278,55 @@ export async function getHistoricoConsultas(req: FastifyRequest, reply: FastifyR
 
   return reply.send({ count, lastConsulta })
 }
+
+export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyReply) {
+  const user: any = (req as any).user
+  if (!user) {
+    req.log.warn({ route: '/ps/historico-completo' }, 'unauthorized_missing_user_in_request')
+    return reply.code(401).send({ error: 'unauthorized' })
+  }
+
+  const targetUserId = user.id
+
+  // Busca quais IDs de perfil (paciente ou médico) estão vinculados a esse ID de USUÁRIO
+  const [paciente, medico] = await Promise.all([
+    prisma.paciente.findUnique({ where: { usuario_id: targetUserId }, select: { id: true } }),
+    prisma.medico.findUnique({ where: { usuario_id: targetUserId }, select: { id: true } })
+  ])
+
+  // Se o usuário não existe como médico nem paciente, não haverá histórico
+  if (!paciente && !medico) {
+    return reply.send([])
+  }
+
+  const where: any = {
+    // Consultas que já participou (em andamento ou finalizadas)
+    status: { in: ['in_progress', 'finished'] }
+  }
+
+  const orConditions = []
+  if (paciente) orConditions.push({ pacienteId: paciente.id })
+  if (medico) orConditions.push({ medicoId: medico.id })
+
+  where.OR = orConditions
+
+  const consultas = await prisma.consulta.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      medico: {
+        select: {
+          nome_completo: true
+        }
+      },
+      paciente: {
+        select: {
+          nome_completo: true
+        }
+      }
+    }
+  })
+
+  req.log.info({ route: '/ps/historico-completo', userId: user.id, items: consultas.length }, 'full_history_listed')
+  return reply.send(consultas)
+}
