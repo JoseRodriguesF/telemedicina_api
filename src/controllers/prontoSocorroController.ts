@@ -225,59 +225,6 @@ export function removerDaFilaPorConsulta(consultaId: number) {
   if (idx >= 0) fila.splice(idx, 1)
 }
 
-export async function getHistoricoConsultas(req: FastifyRequest, reply: FastifyReply) {
-  const user: any = (req as any).user
-  if (!user) {
-    req.log.warn({ route: '/ps/historico' }, 'unauthorized_missing_user_in_request')
-    return reply.code(401).send({ error: 'unauthorized' })
-  }
-
-  const targetUserId = user.id
-
-  // Busca quais IDs de perfil (paciente ou médico) estão vinculados a esse ID de USUÁRIO
-  const [paciente, medico] = await Promise.all([
-    prisma.paciente.findUnique({ where: { usuario_id: targetUserId }, select: { id: true } }),
-    prisma.medico.findUnique({ where: { usuario_id: targetUserId }, select: { id: true } })
-  ])
-
-  // Se o usuário não existe como médico nem paciente, não haverá histórico
-  if (!paciente && !medico) {
-    return reply.send({ count: 0, lastConsulta: null })
-  }
-
-  const where: any = {
-    // Consultas que já participou (em andamento ou finalizadas)
-    status: { in: ['in_progress', 'finished'] }
-  }
-
-  const orConditions = []
-  if (paciente) orConditions.push({ pacienteId: paciente.id })
-  if (medico) orConditions.push({ medicoId: medico.id })
-
-  where.OR = orConditions
-
-  const [count, lastConsulta] = await Promise.all([
-    prisma.consulta.count({ where }),
-    prisma.consulta.findFirst({
-      where,
-      orderBy: { id: 'desc' },
-      include: {
-        medico: {
-          select: {
-            nome_completo: true
-          }
-        },
-        paciente: {
-          select: {
-            nome_completo: true
-          }
-        }
-      }
-    })
-  ])
-
-  return reply.send({ count, lastConsulta })
-}
 
 export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyReply) {
   const user: any = (req as any).user
