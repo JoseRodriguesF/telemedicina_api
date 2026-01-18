@@ -87,6 +87,7 @@ enum StatusVerificacao {
 
 enum ConsultaStatus {
   scheduled
+  agendada
   in_progress
   finished
 
@@ -98,6 +99,9 @@ model Consulta {
   medicoId    Int?            @map("medico_id")
   pacienteId  Int             @map("paciente_id")
   status      ConsultaStatus
+  data_consulta DateTime?     @map("data_consulta") @db.Date
+  hora_inicio  DateTime?      @map("hora_inicio") @db.Time
+  hora_fim     DateTime?      @map("hora_fim") @db.Time
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
 

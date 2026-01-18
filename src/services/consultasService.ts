@@ -4,17 +4,27 @@ export async function getConsultaById(id: number) {
   return prisma.consulta.findUnique({ where: { id } })
 }
 
-export async function updateConsultaStatus(id: number, status: 'scheduled' | 'in_progress' | 'finished') {
+export async function updateConsultaStatus(id: number, status: 'scheduled' | 'agendada' | 'in_progress' | 'finished') {
   return prisma.consulta.update({ where: { id }, data: { status } })
 }
 
-export async function createConsulta(data: { medicoId: number | null; pacienteId: number; status?: 'scheduled' | 'in_progress' | 'finished' }) {
+export async function createConsulta(data: {
+  medicoId: number | null;
+  pacienteId: number;
+  status?: 'scheduled' | 'agendada' | 'in_progress' | 'finished';
+  data_consulta?: string | Date;
+  hora_inicio?: string;
+  hora_fim?: string;
+}) {
   const status = data.status ?? 'scheduled'
   return prisma.consulta.create({
     data: {
       medicoId: (data.medicoId ?? undefined) as any,
       pacienteId: data.pacienteId,
-      status
+      status,
+      data_consulta: data.data_consulta ? new Date(data.data_consulta) : undefined,
+      hora_inicio: data.hora_inicio ?? undefined,
+      hora_fim: data.hora_fim ?? undefined,
     }
   })
 }
@@ -54,7 +64,7 @@ export async function reconnectConsultaByPaciente(consultaId: number, pacienteId
   }
 
   // Permitir reconexão: se o paciente tentando é o dono da consulta e ela está ativa
-  if (exists.pacienteId === pacienteId && (exists.status === 'scheduled' || exists.status === 'in_progress')) {
+  if (exists.pacienteId === pacienteId && (exists.status === 'scheduled' || exists.status === 'agendada' || exists.status === 'in_progress')) {
     return { ok: true, consulta: exists }
   }
 
