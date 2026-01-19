@@ -1,35 +1,42 @@
 import prisma from '../config/database'
+import { ConsultaStatus, ServiceResult } from '../types/shared'
 
 export async function getConsultaById(id: number) {
   return prisma.consulta.findUnique({ where: { id } })
 }
 
-export async function updateConsultaStatus(id: number, status: 'scheduled' | 'agendada' | 'in_progress' | 'finished') {
+export async function updateConsultaStatus(id: number, status: ConsultaStatus) {
   return prisma.consulta.update({ where: { id }, data: { status } })
 }
 
-export async function createConsulta(data: {
-  medicoId: number | null;
-  pacienteId: number;
-  status?: 'scheduled' | 'agendada' | 'in_progress' | 'finished';
-  data_consulta?: string | Date;
-  hora_inicio?: string;
-  hora_fim?: string;
-}) {
+interface CreateConsultaData {
+  medicoId: number | null
+  pacienteId: number
+  status?: ConsultaStatus
+  data_consulta?: string | Date
+  hora_inicio?: string
+  hora_fim?: string
+}
+
+export async function createConsulta(data: CreateConsultaData) {
   const status = data.status ?? 'scheduled'
+
   return prisma.consulta.create({
     data: {
-      medicoId: (data.medicoId ?? undefined) as any,
+      medicoId: data.medicoId || null,
       pacienteId: data.pacienteId,
       status,
       data_consulta: data.data_consulta ? new Date(data.data_consulta) : undefined,
-      hora_inicio: data.hora_inicio ?? undefined,
-      hora_fim: data.hora_fim ?? undefined,
+      hora_inicio: data.hora_inicio || undefined,
+      hora_fim: data.hora_fim || undefined,
     }
   })
 }
 
-export async function claimConsultaByMedico(consultaId: number, medicoId: number) {
+export async function claimConsultaByMedico(
+  consultaId: number,
+  medicoId: number
+): Promise<ServiceResult> {
   // Atomic claim: update only if still scheduled and unassigned
   const res = await prisma.consulta.updateMany({
     where: { id: consultaId, medicoId: null, status: 'scheduled' },
@@ -46,17 +53,20 @@ export async function claimConsultaByMedico(consultaId: number, medicoId: number
 
     // Permitir reconexão: se o médico tentando o claim já é o médico associado e a consulta está em andamento
     if (exists.medicoId === medicoId && exists.status === 'in_progress') {
-      return { ok: true, consulta: exists }
+      return { ok: true, data: exists }
     }
 
     return { ok: false, error: 'already_claimed_or_in_progress' }
   }
 
   const updated = await prisma.consulta.findUnique({ where: { id: consultaId } })
-  return { ok: true, consulta: updated }
+  return { ok: true, data: updated }
 }
 
-export async function reconnectConsultaByPaciente(consultaId: number, pacienteId: number) {
+export async function reconnectConsultaByPaciente(
+  consultaId: number,
+  pacienteId: number
+): Promise<ServiceResult> {
   const exists = await prisma.consulta.findUnique({ where: { id: consultaId } })
 
   if (!exists) {
@@ -64,9 +74,10 @@ export async function reconnectConsultaByPaciente(consultaId: number, pacienteId
   }
 
   // Permitir reconexão: se o paciente tentando é o dono da consulta e ela está ativa
-  if (exists.pacienteId === pacienteId && (exists.status === 'scheduled' || exists.status === 'agendada' || exists.status === 'in_progress')) {
-    return { ok: true, consulta: exists }
+  const activeStatuses: ConsultaStatus[] = ['scheduled', 'agendada', 'in_progress']
+  if (exists.pacienteId === pacienteId && activeStatuses.includes(exists.status as ConsultaStatus)) {
+    return { ok: true, data: exists }
   }
 
-  return { ok: false, error: 'already_claimed_or_in_progress' }
+  return { ok: false, error: 'not_authorized_to_reconnect' }
 }

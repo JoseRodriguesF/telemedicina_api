@@ -1,17 +1,18 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
-import { RegisterService } from '../services/registerService';
-import { z } from 'zod';
-import jwt from 'jsonwebtoken';
-import ApiError from '../utils/apiError';
+import { FastifyRequest, FastifyReply } from 'fastify'
+import { RegisterService } from '../services/registerService'
+import { z } from 'zod'
+import ApiError from '../utils/apiError'
+import { generateJWT } from '../utils/security'
+import logger from '../utils/logger'
 
-const registerService = new RegisterService();
+const registerService = new RegisterService()
 
 // Schemas de validação com Zod
 const registerAccessSchema = z.object({
   email: z.string().email('Email inválido'),
   senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
   tipo_usuario: z.enum(['medico', 'paciente'])
-});
+})
 
 const registerPersonalSchema = z.object({
   usuario_id: z.number().int().positive('ID do usuário deve ser um número positivo'),
@@ -28,7 +29,7 @@ const registerPersonalSchema = z.object({
     numero: z.number().int().nonnegative('Número inválido'),
     complemento: z.string().nullish()
   })
-});
+})
 
 const registerMedicoSchema = z.object({
   usuario_id: z.number().int().positive('ID do usuário deve ser um número positivo'),
@@ -41,51 +42,51 @@ const registerMedicoSchema = z.object({
   especializacao_url: z.string().url('URL do diploma de especialista inválida').nullish(),
   assinatura_digital_url: z.string().url('URL da assinatura digital inválida'),
   seguro_responsabilidade_url: z.string().url('URL do seguro de responsabilidade inválida')
-});
+})
 
 export class RegisterController {
   async registerAccess(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const { email, senha, tipo_usuario } = registerAccessSchema.parse(request.body);
-      const user = await registerService.createUser(email, senha, tipo_usuario);
-      reply.send({ message: 'Dados de acesso registrados com sucesso', userId: user.id });
+      const { email, senha, tipo_usuario } = registerAccessSchema.parse(request.body)
+      const user = await registerService.createUser(email, senha, tipo_usuario)
+      reply.send({ message: 'Dados de acesso registrados com sucesso', userId: user.id })
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } });
+        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } })
       } else if (error instanceof ApiError) {
-        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
+        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } })
       } else {
-        // Log completo do erro no servidor para diagnóstico (não expor ao cliente)
-        console.error('RegisterController.registerAccess error:', error instanceof Error ? error.stack || error.message : error);
-        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
+        logger.error('RegisterController.registerAccess unexpected error', error)
+        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } })
       }
     }
   }
 
   async registerPersonal(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const data = registerPersonalSchema.parse(request.body);
-      const paciente = await registerService.createPaciente(data);
+      const data = registerPersonalSchema.parse(request.body)
+      const paciente = await registerService.createPaciente(data)
+
       // Criar endereço associado ao usuário
       await registerService.createEndereco({
         usuario_id: data.usuario_id,
         endereco: data.endereco.endereco,
         numero: data.endereco.numero,
         complemento: data.endereco.complemento
-      });
-      
+      })
+
       // Buscar dados do usuário para gerar JWT
-      const usuario = await registerService.getUsuarioById(data.usuario_id);
-      
-      // Gerar JWT
-      const token = jwt.sign(
-        { id: usuario.id, email: usuario.email, tipo_usuario: usuario.tipo_usuario },
-        process.env.JWT_SECRET!,
-        { expiresIn: '7d' }
-      );
-      
-      reply.send({ 
-        message: 'Dados pessoais registrados com sucesso. Cadastro completo!', 
+      const usuario = await registerService.getUsuarioById(data.usuario_id)
+
+      // Gerar JWT usando helper seguro
+      const token = generateJWT({
+        id: usuario.id,
+        email: usuario.email,
+        tipo_usuario: usuario.tipo_usuario
+      })
+
+      reply.send({
+        message: 'Dados pessoais registrados com sucesso. Cadastro completo!',
         pacienteId: paciente.id,
         user: {
           id: usuario.id,
@@ -94,33 +95,33 @@ export class RegisterController {
           nome: data.nome_completo,
           token
         }
-      });
+      })
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } });
+        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } })
       } else if (error instanceof ApiError) {
-        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
+        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } })
       } else {
-        console.error('RegisterController.registerPersonal error:', error instanceof Error ? error.stack || error.message : error);
-        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
+        logger.error('RegisterController.registerPersonal unexpected error', error)
+        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } })
       }
     }
   }
 
   async registerMedico(request: FastifyRequest, reply: FastifyReply) {
     try {
-      const data = registerMedicoSchema.parse(request.body);
-      const medico = await registerService.createMedico(data as any);
+      const data = registerMedicoSchema.parse(request.body)
+      const medico = await registerService.createMedico(data as any)
 
       // Buscar dados do usuário para gerar JWT
-      const usuario = await registerService.getUsuarioById(data.usuario_id);
+      const usuario = await registerService.getUsuarioById(data.usuario_id)
 
-      // Gerar JWT
-      const token = jwt.sign(
-        { id: usuario.id, email: usuario.email, tipo_usuario: usuario.tipo_usuario },
-        process.env.JWT_SECRET!,
-        { expiresIn: '7d' }
-      );
+      // Gerar JWT usando helper seguro
+      const token = generateJWT({
+        id: usuario.id,
+        email: usuario.email,
+        tipo_usuario: usuario.tipo_usuario
+      })
 
       reply.send({
         message: 'Dados pessoais do médico registrados com sucesso. Cadastro completo!',
@@ -132,15 +133,15 @@ export class RegisterController {
           nome: data.nome_completo,
           token
         }
-      });
+      })
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } });
+        reply.code(400).send({ error: { code: 'INVALID_INPUT', message: 'Dados inválidos', details: error.issues } })
       } else if (error instanceof ApiError) {
-        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } });
+        reply.code(error.statusCode).send({ error: { code: error.code, message: error.message, details: error.details, payload: error.payload } })
       } else {
-        console.error('RegisterController.registerMedico error:', error instanceof Error ? error.stack || error.message : error);
-        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } });
+        logger.error('RegisterController.registerMedico unexpected error', error)
+        reply.code(500).send({ error: { code: 'INTERNAL_ERROR', message: 'Erro interno. Tente novamente mais tarde.' } })
       }
     }
   }

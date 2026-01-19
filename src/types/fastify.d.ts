@@ -1,11 +1,8 @@
-import 'fastify';
+import 'fastify'
+import { AuthenticatedUser } from './shared'
 
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: {
-      id: number;
-      email: string;
-      tipo_usuario: string;
-    };
+    user?: AuthenticatedUser
   }
 }

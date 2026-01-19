@@ -1,5 +1,16 @@
-import {PrismaClient} from '@prisma/client';
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient();
+// Configuração segura do Prisma Client
+const prisma = new PrismaClient({
+    log: process.env.NODE_ENV === 'development'
+        ? ['query', 'error', 'warn']
+        : ['error'],
+    errorFormat: 'minimal',
+})
 
-export default prisma;
+// Graceful shutdown
+process.on('beforeExit', async () => {
+    await prisma.$disconnect()
+})
+
+export default prisma
