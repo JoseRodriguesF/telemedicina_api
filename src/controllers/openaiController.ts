@@ -3,6 +3,7 @@ import { chatWithOpenAI } from '../services/openaiService'
 import prisma from '../config/database'
 
 import { ChatMessage } from '../services/openaiService'
+import logger from '../utils/logger'
 
 interface ChatBody {
   message: string
@@ -30,8 +31,8 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
     // Buscar nome do paciente se o usuário for paciente
     let nomePaciente: string | null = null
     if (user.tipo_usuario === 'paciente') {
-      const paciente = await prisma.paciente.findUnique({ 
-        where: { usuario_id: user.id } 
+      const paciente = await prisma.paciente.findUnique({
+        where: { usuario_id: user.id }
       })
       nomePaciente = paciente?.nome_completo || null
     }
@@ -40,7 +41,10 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
 
     return reply.send({ answer, completed })
   } catch (err: any) {
-    console.error('Erro ao chamar OpenAI:', err)
+    logger.error('Failed to call OpenAI API', err, {
+      userId: (req as any).user?.id,
+      messageLength: req.body.message?.length
+    })
     return reply.code(500).send({ error: 'erro_ao_chamar_openai' })
   }
 }

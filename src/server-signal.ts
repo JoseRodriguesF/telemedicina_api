@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken'
 import { Rooms } from './utils/rooms'
 import { getConsultaById } from './services/consultasService'
 import prisma from './config/database'
+import logger from './utils/logger'
 
 type ClientInfo = {
   userId: string | number
@@ -99,16 +100,15 @@ export function initSignalServer(httpServer: Server) {
           // even if roles were not provided by the clients.
           const bothConnected = participants.length === 2
           if (bothConnected) {
-            const payload = {
-              level: 30,
-              route: '/signal/join',
-              msg: roles.includes('medico') && roles.includes('paciente')
-                ? 'medico_and_paciente_connected_same_room'
-                : 'two_participants_connected_same_room',
-              roomId: info.roomId,
-              participants: participants.map(p => ({ userId: p.userId, role: p.role }))
-            }
-            try { console.log(JSON.stringify(payload)) } catch { /* noop */ }
+            logger.info(
+              roles.includes('medico') && roles.includes('paciente')
+                ? 'Medico and paciente connected to same room'
+                : 'Two participants connected to same room',
+              {
+                roomId: info.roomId,
+                participants: participants.map(p => ({ userId: p.userId, role: p.role }))
+              }
+            )
             // also notify both peers
             broadcastToRoom(info.roomId, null, { type: 'ready', roomId: info.roomId })
           }

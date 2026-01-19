@@ -8,10 +8,15 @@ import consultasRoutes from './routes/consultas'
 import prontoSocorroRoutes from './routes/prontoSocorro'
 import { initSignalServer } from './server-signal'
 import { openaiRoutes } from './routes/openai'
+import logger from './utils/logger'
+import { errorHandler } from './middlewares/errorHandler'
 
 dotenv.config()
 
-const server = Fastify({ logger: true })
+const server = Fastify({ logger: false }) // Desativar logger padrão do Fastify
+
+// Registrar middleware de erro
+server.setErrorHandler(errorHandler)
 
 const start = async () => {
   try {
@@ -38,11 +43,13 @@ const start = async () => {
     // Conectar ao banco de dados
     await prisma.$connect()
 
-    console.log('✅ Servidor rodando na porta', process.env.PORT || 3000)
-    console.log('✅ Conectado ao banco de dados')
+    logger.info('Server started successfully', {
+      port: process.env.PORT || 3000,
+      host: '0.0.0.0'
+    })
+    logger.info('Database connected')
   } catch (err) {
-    console.error('❌ Falha ao iniciar o servidor:')
-    server.log.error(err)
+    logger.error('Failed to start server', err as Error)
     process.exit(1)
   }
 }
