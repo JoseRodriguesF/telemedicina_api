@@ -39,7 +39,11 @@ export async function claimConsultaByMedico(
 ): Promise<ServiceResult> {
   // Atomic claim: update only if still scheduled and unassigned
   const res = await prisma.consulta.updateMany({
-    where: { id: consultaId, medicoId: null, status: 'scheduled' },
+    where: {
+      id: consultaId,
+      medicoId: null,
+      status: { in: ['scheduled', 'solicitada', 'agendada'] }
+    },
     data: { medicoId, status: 'in_progress' }
   })
 
@@ -74,7 +78,7 @@ export async function reconnectConsultaByPaciente(
   }
 
   // Permitir reconexão: se o paciente tentando é o dono da consulta e ela está ativa
-  const activeStatuses: ConsultaStatus[] = ['scheduled', 'agendada', 'in_progress']
+  const activeStatuses: ConsultaStatus[] = ['scheduled', 'agendada', 'solicitada', 'in_progress']
   if (exists.pacienteId === pacienteId && activeStatuses.includes(exists.status as ConsultaStatus)) {
     return { ok: true, data: exists }
   }

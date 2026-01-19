@@ -15,7 +15,8 @@ import {
   AuthenticatedUser,
   AgendarConsultaBody,
   JoinRoomBody,
-  RequestWithUserId
+  RequestWithUserId,
+  ConsultaStatus
 } from '../types/shared'
 
 export async function createOrGetRoom(req: RequestWithNumericId, reply: FastifyReply) {
@@ -34,7 +35,7 @@ export async function createOrGetRoom(req: RequestWithNumericId, reply: FastifyR
   const { roomId, created } = Rooms.createOrGet(id)
   const iceServers = await getIceServersWithFallback()
 
-  if (created && consulta.status === 'scheduled') {
+  if (created && ['scheduled', 'agendada', 'solicitada'].includes(consulta.status)) {
     await updateConsultaStatus(id, 'in_progress')
   }
 
@@ -149,7 +150,7 @@ export async function agendarConsulta(
     const consulta = await createConsulta({
       medicoId,
       pacienteId,
-      status: 'agendada',
+      status: 'solicitada',
       data_consulta,
       hora_inicio,
       hora_fim
@@ -170,7 +171,7 @@ export async function listConsultasAgendadas(req: RequestWithUserId, reply: Fast
   if (!user) return reply.code(401).send({ error: 'unauthorized' })
 
   const { userId } = req.query
-  const where: any = { status: 'agendada' }
+  const where: any = { status: { in: ['agendada', 'solicitada'] } }
 
   if (userId) {
     const validation = validateNumericId(userId, 'user_id')
@@ -201,6 +202,76 @@ export async function listConsultasAgendadas(req: RequestWithUserId, reply: Fast
   })
 
   return reply.send(consultas)
+}
+
+export async function confirmarConsulta(req: RequestWithNumericId, reply: FastifyReply) {
+  const validation = validateNumericId(req.params.id, 'consulta_id')
+  if (!validation.valid) return reply.code(400).send(validation.error!)
+
+  const id = validation.numericId!
+  const consulta = await getConsultaById(id)
+  if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+
+  if ((consulta.status as ConsultaStatus) !== 'solicitada') {
+    return reply.code(400).send({
+      error: 'invalid_status_transition',
+      message: 'Apenas consultas com status solicitado podem ser confirmadas'
+    })
+  }
+
+  const user = req.user as AuthenticatedUser
+  // Opcional: Adicionar lógica de permissão aqui se necessário (ex: apenas o médico ou admin)
+
+  const updated = await updateConsultaStatus(id, 'agendada')
+  return reply.send({ ok: true, consulta: updated })
+}
+
+
+export async function cancelarConsulta(req: RequestWithNumericId, reply: FastifyReply) {
+  const validation = validateNumericId(req.params.id, 'consulta_id')
+  if (!validation.valid) return reply.code(400).send(validation.error!)
+
+  const id = validation.numericId!
+  const consulta = await getConsultaById(id)
+  if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+
+  const user = req.user as AuthenticatedUser
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  // Verificar permissões: paciente pode cancelar suas próprias consultas, médico/admin podem cancelar qualquer uma
+  if (user.tipo_usuario === 'paciente') {
+    const { pacienteId } = await resolveUserProfiles(user.id)
+    if (!pacienteId || consulta.pacienteId !== pacienteId) {
+      return reply.code(403).send({ error: 'forbidden' })
+    }
+  }
+
+  // Verificar se a consulta está em um estado que permite cancelamento
+  if (consulta.status === 'finished') {
+    return reply.code(400).send({
+      error: 'cannot_cancel_finished_consultation',
+      message: 'Não é possível cancelar consultas finalizadas'
+    })
+  }
+
+  // Se a consulta está em andamento, encerrar a sala antes de deletar
+  if (consulta.status === 'in_progress') {
+    const roomId = Rooms.findRoomIdByConsulta(id)
+    if (roomId) {
+      Rooms.end(roomId)
+    }
+  }
+
+  // Deletar a consulta
+  await prisma.consulta.delete({ where: { id } })
+
+  logger.info('Consultation cancelled', {
+    consultaId: id,
+    userId: user.id,
+    previousStatus: consulta.status
+  })
+
+  return reply.send({ ok: true, message: 'Consulta cancelada com sucesso' })
 }
 
 export async function listMedicos(req: FastifyRequest, reply: FastifyReply) {

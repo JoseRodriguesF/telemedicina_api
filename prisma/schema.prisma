@@ -90,6 +90,7 @@ enum ConsultaStatus {
   agendada
   in_progress
   finished
+  solicitada
 
   @@map("consulta_status_enum")
 }
