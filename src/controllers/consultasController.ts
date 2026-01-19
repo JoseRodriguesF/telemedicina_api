@@ -238,20 +238,78 @@ export async function cancelarConsulta(req: RequestWithNumericId, reply: Fastify
   const user = req.user as AuthenticatedUser
   if (!user) return reply.code(401).send({ error: 'unauthorized' })
 
-  // Verificar permissões: paciente pode cancelar suas próprias consultas, médico/admin podem cancelar qualquer uma
-  if (user.tipo_usuario === 'paciente') {
-    const { pacienteId } = await resolveUserProfiles(user.id)
-    if (!pacienteId || consulta.pacienteId !== pacienteId) {
-      return reply.code(403).send({ error: 'forbidden' })
-    }
-  }
-
   // Verificar se a consulta está em um estado que permite cancelamento
   if (consulta.status === 'finished') {
     return reply.code(400).send({
       error: 'cannot_cancel_finished_consultation',
       message: 'Não é possível cancelar consultas finalizadas'
     })
+  }
+
+  // Lógica específica para médicos: Tentar reatribuir em vez de excluir
+  if (user.tipo_usuario === 'medico') {
+    const { medicoId } = await resolveUserProfiles(user.id)
+
+    // Se o médico for o responsável pela consulta
+    if (medicoId && consulta.medicoId === medicoId) {
+      // 1. Encontrar outro médico disponível
+      // Busca o primeiro médico que não seja o atual
+      const replacementDoctor = await prisma.medico.findFirst({
+        where: {
+          id: { not: medicoId }
+        }
+      })
+
+      if (replacementDoctor) {
+        // 2. Reatribuir a consulta
+        const updated = await prisma.consulta.update({
+          where: { id },
+          data: { medicoId: replacementDoctor.id }
+        })
+
+        logger.info('Consulta reatribuída automaticamente', {
+          consultaId: id,
+          oldMedicoId: medicoId,
+          newMedicoId: replacementDoctor.id
+        })
+
+        return reply.send({
+          ok: true,
+          message: 'Consulta retransferida para outro médico',
+          consulta: updated,
+          action: 'reassigned'
+        })
+      } else {
+        // Se não houver outro médico, liberar a consulta (remove atribuição)
+        // Isso permite que a consulta volte para uma fila geral, se existir, ou fique pendente
+        const updated = await prisma.consulta.update({
+          where: { id },
+          data: { medicoId: null }
+        })
+
+        logger.info('Consulta liberada (sem médico substituto)', {
+          consultaId: id,
+          oldMedicoId: medicoId
+        })
+
+        return reply.send({
+          ok: true,
+          message: 'Consulta liberada (nenhum outro médico encontrado)',
+          consulta: updated,
+          action: 'released'
+        })
+      }
+    }
+  }
+
+  // --- Comportamento padrão (Paciente cancelando, ou Admin, ou Médico cancelando de outro) ---
+
+  // Verificar permissões para paciente
+  if (user.tipo_usuario === 'paciente') {
+    const { pacienteId } = await resolveUserProfiles(user.id)
+    if (!pacienteId || consulta.pacienteId !== pacienteId) {
+      return reply.code(403).send({ error: 'forbidden' })
+    }
   }
 
   // Se a consulta está em andamento, encerrar a sala antes de deletar
@@ -265,7 +323,7 @@ export async function cancelarConsulta(req: RequestWithNumericId, reply: Fastify
   // Deletar a consulta
   await prisma.consulta.delete({ where: { id } })
 
-  logger.info('Consultation cancelled', {
+  logger.info('Consulta cancelada e excluída', {
     consultaId: id,
     userId: user.id,
     previousStatus: consulta.status
