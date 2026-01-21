@@ -95,11 +95,15 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
    - Use 0 para números não informados
    - O JSON deve ser VÁLIDO e em UMA LINHA
    - Preencha TODOS os dados coletados durante a conversa
+
+   🚨 INSTRUÇÃO CRÍTICA:
+   NÃO ESQUEÇA DE INCLUIR [TRIAGEM_CONCLUIDA] E [DADOS_ESTRUTURADOS] QUANDO TERMINAR.
+   SE VOCÊ DISSER "Sua triagem foi concluída com sucesso", VOCÊ É OBRIGADA A INCLUIR OS MARCADORES E O JSON.
    `
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
-    temperature: 0.3,
+    temperature: 0.1,
     messages: [
       { role: 'system', content: promptComportamento },
       // histórico enviado pelo frontend (mantém contexto apenas durante a sessão)
@@ -124,21 +128,31 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
       .join('\n')
   }
 
-  // Detectar se a triagem foi concluída (IA adicionou [TRIAGEM_CONCLUIDA] no final)
-  const completed = answer.includes('[TRIAGEM_CONCLUIDA]')
+  // Detectar se a triagem foi concluída
+  // 1. Busca pelo marcador explícito [TRIAGEM_CONCLUIDA]
+  let completed = answer.includes('[TRIAGEM_CONCLUIDA]')
+
+  // 2. Fallback: Busca pela frase exata de conclusão caso a IA tenha esquecido o marcador
+  const fraseConclusao = "Sua triagem foi concluída com sucesso"
+  if (!completed && answer.includes(fraseConclusao)) {
+    console.warn('[DEBUG] Fallback ativado: Frase de conclusão encontrada sem marcador [TRIAGEM_CONCLUIDA]')
+    completed = true
+  }
 
   // 🔍 DEBUG: Log detalhado para investigar completed
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
   console.log('[DEBUG OPENAI SERVICE]')
   console.log('Resposta completa da IA (primeiros 500 chars):', answer.substring(0, 500))
-  console.log('Resposta completa da IA (últimos 500 chars):', answer.substring(Math.max(0, answer.length - 500)))
-  console.log('Contém [TRIAGEM_CONCLUIDA]?:', answer.includes('[TRIAGEM_CONCLUIDA]'))
-  console.log('Contém [DADOS_ESTRUTURADOS]?:', answer.includes('[DADOS_ESTRUTURADOS]'))
-  console.log('completed:', completed)
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  // ... logs existentes ...
 
   // Extrair dados estruturados se presentes
   let dadosEstruturados = null
+  if (answer.includes('[DADOS_ESTRUTURADOS]')) {
+    // ... código existente ...
+  } else if (completed) {
+    // Se completou mas não tem dados estruturados, é um problema sério
+    console.error('[ERRO CRÍTICO] Triagem concluída (via marcador ou frase) mas SEM [DADOS_ESTRUTURADOS]!')
+  }
   if (answer.includes('[DADOS_ESTRUTURADOS]')) {
     try {
       const dadosMatch = answer.match(/\[DADOS_ESTRUTURADOS\]\s*(\{[\s\S]*\})/)
