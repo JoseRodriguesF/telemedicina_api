@@ -111,6 +111,7 @@ model Consulta {
 
   medico      Medico?         @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
   paciente    Paciente        @relation(name: "ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
+  historiaClinica HistoriaClinica[]
 
   @@index([medicoId], name: "idx_consultas_medico_id")
   @@index([pacienteId], name: "idx_consultas_paciente_id")
@@ -121,6 +122,7 @@ model Consulta {
 model HistoriaClinica {
   id                      Int      @id @default(autoincrement())
   pacienteId              Int      @map("paciente_id")
+  consultaId              Int?     @map("consulta_id")
   queixaPrincipal         String   @map("queixa_principal") @db.Text
   descricaoSintomas       String?  @map("descricao_sintomas") @db.Text
   historicoPessoal        Json?    @default("{}") @map("historico_pessoal") @db.JsonB
@@ -137,11 +139,13 @@ model HistoriaClinica {
   versao                  Int      @default(1)
 
   paciente         Paciente  @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+  consulta         Consulta? @relation(fields: [consultaId], references: [id], onDelete: SetNull)
   usuarioCriador   Usuario?  @relation("HistoriaClinicaCriadaPor", fields: [criadoPor], references: [id], onDelete: SetNull)
   usuarioAtualizador Usuario? @relation("HistoriaClinicaAtualizadaPor", fields: [atualizadoPor], references: [id], onDelete: SetNull)
 
   @@unique([pacienteId, versao], name: "historiClinica_paciente_versao_key")
   @@index([pacienteId], name: "idx_historiaclinica_paciente_id")
+  @@index([consultaId], name: "idx_historiaclinica_consulta_id")
   @@index([status], name: "idx_historiaclinica_status")
   @@index([dataConsulta], name: "idx_historiaclinica_data_consulta")
   @@index([criadoPor], name: "idx_historiaclinica_criado_por")

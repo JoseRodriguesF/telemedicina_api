@@ -127,6 +127,16 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
   // Detectar se a triagem foi concluída (IA adicionou [TRIAGEM_CONCLUIDA] no final)
   const completed = answer.includes('[TRIAGEM_CONCLUIDA]')
 
+  // 🔍 DEBUG: Log detalhado para investigar completed
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+  console.log('[DEBUG OPENAI SERVICE]')
+  console.log('Resposta completa da IA (primeiros 500 chars):', answer.substring(0, 500))
+  console.log('Resposta completa da IA (últimos 500 chars):', answer.substring(Math.max(0, answer.length - 500)))
+  console.log('Contém [TRIAGEM_CONCLUIDA]?:', answer.includes('[TRIAGEM_CONCLUIDA]'))
+  console.log('Contém [DADOS_ESTRUTURADOS]?:', answer.includes('[DADOS_ESTRUTURADOS]'))
+  console.log('completed:', completed)
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
   // Extrair dados estruturados se presentes
   let dadosEstruturados = null
   if (answer.includes('[DADOS_ESTRUTURADOS]')) {
@@ -134,6 +144,9 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
       const dadosMatch = answer.match(/\[DADOS_ESTRUTURADOS\]\s*(\{[\s\S]*\})/)
       if (dadosMatch && dadosMatch[1]) {
         dadosEstruturados = JSON.parse(dadosMatch[1])
+        console.log('[DEBUG] Dados estruturados parseados com sucesso')
+      } else {
+        console.warn('[DEBUG] Marcador encontrado mas regex não capturou JSON')
       }
     } catch (err) {
       // Se falhar ao parsear, tenta extrair linha por linha
@@ -146,6 +159,9 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
     .replace(/\[TRIAGEM_CONCLUIDA\]/g, '')
     .replace(/\[DADOS_ESTRUTURADOS\]\s*\{[\s\S]*\}/g, '')
     .trim()
+
+  console.log('[DEBUG] cleanAnswer (primeiros 200 chars):', cleanAnswer.substring(0, 200))
+  console.log('[DEBUG] Retornando: { completed:', completed, ', dadosEstruturados:', dadosEstruturados ? 'SIM' : 'NÃO', '}')
 
   return { answer: cleanAnswer, completed, dadosEstruturados }
 }
