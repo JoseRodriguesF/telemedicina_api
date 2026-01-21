@@ -126,8 +126,23 @@ export async function agendarConsulta(
   const user = req.user as AuthenticatedUser
   if (!user) return reply.code(401).send({ error: 'unauthorized' })
 
-  const { medico_id, paciente_id, data_consulta, hora_inicio, hora_fim } = req.body
+  const { medico_id, data_consulta, hora_inicio, hora_fim } = req.body
+  let { paciente_id } = req.body
 
+  // Se for paciente, usar o próprio pacienteId
+  if (user.tipo_usuario === 'paciente') {
+    const { pacienteId: userPacienteId } = await resolveUserProfiles(user.id)
+    if (!userPacienteId) {
+      return reply.code(403).send({
+        error: 'paciente_profile_not_found',
+        message: 'Perfil de paciente não encontrado para este usuário'
+      })
+    }
+    // Sobrescrever/Definir paciente_id com o ID correto do paciente logado
+    paciente_id = userPacienteId
+  }
+
+  // Validação agora ocorre com o ID correto (seja vindo do body ou do perfil)
   const validation = validateNumericId(paciente_id, 'paciente_id')
   if (!validation.valid) return reply.code(400).send(validation.error!)
 
@@ -137,14 +152,6 @@ export async function agendarConsulta(
   // Validar data
   const dateValidation = validateDate(data_consulta)
   if (!dateValidation.valid) return reply.code(400).send(dateValidation.error!)
-
-  // Autorização: paciente pode agendar para si
-  if (user.tipo_usuario === 'paciente') {
-    const { pacienteId: userPacienteId } = await resolveUserProfiles(user.id)
-    if (!userPacienteId || userPacienteId !== pacienteId) {
-      return reply.code(403).send({ error: 'forbidden' })
-    }
-  }
 
   try {
     const consulta = await createConsulta({
