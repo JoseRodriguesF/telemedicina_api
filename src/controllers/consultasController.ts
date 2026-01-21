@@ -162,6 +162,18 @@ export async function agendarConsulta(
       hora_inicio,
       hora_fim
     })
+
+    if (req.body.historiaClinicaId) {
+      try {
+        await prisma.historiaClinica.updateMany({
+          where: { id: req.body.historiaClinicaId, pacienteId },
+          data: { consultaId: consulta.id }
+        })
+      } catch (error) {
+        logger.error('Erro ao vincular história clínica à consulta agendada', error, { consultaId: consulta.id })
+      }
+    }
+
     return reply.send({ ok: true, consulta })
   } catch (err: any) {
     logger.error('Failed to schedule consultation', err, {

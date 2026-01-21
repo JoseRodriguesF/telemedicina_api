@@ -20,6 +20,7 @@ export interface AgendarConsultaBody {
     data_consulta?: string
     hora_inicio?: string
     hora_fim?: string
+    historiaClinicaId?: number
 }
 
 export interface JoinRoomBody {

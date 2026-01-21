@@ -89,6 +89,19 @@ export async function criarSalaConsulta(req: FastifyRequest, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(consulta.id)
   const iceServers = await getIceServersWithFallback()
 
+  const { historiaClinicaId } = req.body as { historiaClinicaId?: number }
+  if (historiaClinicaId) {
+    try {
+      await prisma.historiaClinica.updateMany({
+        where: { id: historiaClinicaId, pacienteId },
+        data: { consultaId: consulta.id }
+      })
+    } catch (error) {
+      console.error('Erro ao vincular história clínica à consulta:', error)
+      // Não falhar a requisição principal
+    }
+  }
+
   return reply.send({ roomId, consultaId: consulta.id, iceServers })
 }
 
