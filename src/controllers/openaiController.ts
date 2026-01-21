@@ -1,9 +1,11 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
 import { chatWithOpenAI } from '../services/openaiService'
 import prisma from '../config/database'
-
 import { ChatMessage } from '../services/openaiService'
 import logger from '../utils/logger'
+import { HistoriaClinicaService } from '../services/historiaClinicaService'
+
+const historiaService = new HistoriaClinicaService()
 
 interface ChatBody {
   message: string
@@ -30,14 +32,54 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
 
     // Buscar nome do paciente se o usuário for paciente
     let nomePaciente: string | null = null
+    let pacienteId: number | null = null
     if (user.tipo_usuario === 'paciente') {
       const paciente = await prisma.paciente.findUnique({
         where: { usuario_id: user.id }
       })
       nomePaciente = paciente?.nome_completo || null
+      pacienteId = paciente?.id || null
     }
 
-    const { answer, completed } = await chatWithOpenAI(message, nomePaciente, history || [])
+    const { answer, completed, dadosEstruturados } = await chatWithOpenAI(message, nomePaciente, history || [])
+
+    // Se a triagem foi concluída e temos dados estruturados, salvar no banco
+    if (completed && dadosEstruturados && pacienteId) {
+      try {
+        const historiaClinica = await historiaService.criarHistoriaClinica(
+          pacienteId,
+          user.id,
+          dadosEstruturados
+        )
+
+        logger.info('História clínica salva automaticamente', {
+          historiaClinicaId: historiaClinica.id,
+          pacienteId,
+          usuarioId: user.id
+        })
+
+        return reply.send({
+          answer,
+          completed,
+          historiaClinicaSalva: true,
+          historiaClinicaId: historiaClinica.id
+        })
+      } catch (err) {
+        // Log do erro mas não falha a resposta do chat
+        logger.error('Erro ao salvar história clínica automaticamente', err as Error, {
+          pacienteId,
+          usuarioId: user.id
+        })
+
+        // Retornar resposta mesmo que falhe ao salvar
+        return reply.send({
+          answer,
+          completed,
+          historiaClinicaSalva: false,
+          erro: 'Erro ao salvar história clínica'
+        })
+      }
+    }
 
     return reply.send({ answer, completed })
   } catch (err: any) {
