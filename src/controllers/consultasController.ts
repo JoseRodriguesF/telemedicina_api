@@ -213,7 +213,10 @@ export async function listConsultasAgendadas(req: RequestWithUserId, reply: Fast
 
   const consultas = await prisma.consulta.findMany({
     where,
-    orderBy: { data_consulta: 'asc' },
+    orderBy: [
+      { data_consulta: 'asc' },
+      { hora_inicio: 'asc' }
+    ],
     include: {
       medico: { select: { id: true, nome_completo: true } },
       paciente: { select: { id: true, nome_completo: true } }
