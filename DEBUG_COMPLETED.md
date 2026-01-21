@@ -106,58 +106,28 @@ Me envie TODOS os logs para análise, especialmente:
 
 ---
 
-## 🔎 Análise Esperada
+### 🛠️ Solução Aplicada (Commit `77f948f`)
 
-### Cenário 1: IA não adiciona os marcadores ❌
+Identificamos que a IA estava esquecendo de enviar o marcador `[TRIAGEM_CONCLUIDA]` na resposta final, causando `completed: false` e travando o fluxo.
 
-**Sintoma:**
-```
-Contém [TRIAGEM_CONCLUIDA]?: false
-Contém [DADOS_ESTRUTURADOS]?: false
-completed: false
-```
+Aplicamos 3 camadas de correção:
 
-**Solução:** Ajustar o prompt da IA ou implementar detecção alternativa.
-
-### Cenário 2: IA adiciona mas regex não captura ⚠️
-
-**Sintoma:**
-```
-Contém [TRIAGEM_CONCLUIDA]?: true
-Marcador encontrado mas regex não capturou JSON
-completed: true
-```
-
-**Solução:** Ajustar a regex de parsing do JSON.
-
-### Cenário 3: Tudo funciona ✅
-
-**Sintoma:**
-```
-Contém [TRIAGEM_CONCLUIDA]?: true
-Contém [DADOS_ESTRUTURADOS]?: true
-Dados estruturados parseados com sucesso
-completed: true
-```
-
-**Resultado:** Redirecionamento deve funcionar corretamente!
+1.  **Prompt Reforçado (Critical Instruction):** Adicionamos um aviso explícito e "gritante" no final do prompt instruindo a IA a nunca esquecer os marcadores.
+2.  **Temperatura Reduzida (0.3 → 0.1):** Diminuímos a criatividade da IA para torná-la mais "obediente" às regras de formatação.
+3.  **Fallback de Software:** Se a IA ainda assim falhar, o código agora procura pela frase *"Sua triagem foi concluída com sucesso"*. Se essa frase existir, consideramos a triagem concluída mesmo sem o marcador.
 
 ---
 
-## 📌 Observações Importantes
+## 🚀 Como Testar Agora
 
-- ✅ **Banco de Dados Sincronizado**: O schema do banco de dados foi atualizado com sucesso usando `prisma db push`. A coluna `consultaId` já está disponível na tabela `historiaClinica`.
-- ⚠️ **Migrations**: Como o banco foi criado manualmente, não estamos usando migrations neste momento. O comando `npx prisma db push` foi utilizado para garantir que o banco corresponda ao schema.
-- ✅ **Correção do Frontend**: O bug de travamento no redirecionamento já foi corrigido.
+1.  Aguarde o deploy automático.
+2.  Acesse a pré-consulta e realize uma nova triagem.
+3.  O fluxo deve funcionar automaticamente.
+4.  Se quiser verificar os logs, verá:
+    *   No melhor caso: `Contém [TRIAGEM_CONCLUIDA]?: true`
+    *   No caso de fallback: `[DEBUG] Fallback ativado: Frase de conclusão encontrada sem marcador`
 
----
-
-## 🚀 Próximos Passos (O que fazer agora)
-
-1. **Reinicie o Backend** (se estiver rodando localmente) ou aguarde o deploy.
-2. **Execute uma Triagem Completa** no frontend.
-3. **Colete os Logs** conforme descrito acima.
-4. **Envie os Logs** para análise.
+O problema deve estar resolvido. ✅
 
 ---
 

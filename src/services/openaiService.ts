@@ -96,9 +96,22 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
    - O JSON deve ser VÁLIDO e em UMA LINHA
    - Preencha TODOS os dados coletados durante a conversa
 
-   🚨 INSTRUÇÃO CRÍTICA:
-   NÃO ESQUEÇA DE INCLUIR [TRIAGEM_CONCLUIDA] E [DADOS_ESTRUTURADOS] QUANDO TERMINAR.
-   SE VOCÊ DISSER "Sua triagem foi concluída com sucesso", VOCÊ É OBRIGADA A INCLUIR OS MARCADORES E O JSON.
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   🧠 PROCESSO DE PENSAMENTO (CHAIN OF THOUGHT):
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Antes de responder, você deve analisar internamente:
+   1. Quais dos 6 dados obrigatórios eu JÁ tenho?
+   2. Qual é o PRÓXIMO dado que falta?
+   3. O usuário já respondeu tudo?
+
+   SE (Faltam dados) {
+      Faça a próxima pergunta da lista.
+   }
+   SE (Tenho TODOS os 6 dados) {
+      EMITA A MENSAGEM FINAL + [TRIAGEM_CONCLUIDA] + [DADOS_ESTRUTURADOS] + JSON.
+      NÃO FAÇA MAIS PERGUNTAS.
+      NÃO SE DESPEÇA SEM MANDAR O JSON.
+   }
    `
 
   const response = await client.chat.completions.create({
