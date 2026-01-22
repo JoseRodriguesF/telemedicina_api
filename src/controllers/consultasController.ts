@@ -42,6 +42,30 @@ export async function createOrGetRoom(req: RequestWithNumericId, reply: FastifyR
   return reply.send({ roomId, iceServers })
 }
 
+export async function getConsultaDetails(req: RequestWithNumericId, reply: FastifyReply) {
+  const validation = validateNumericId(req.params.id, 'consulta_id')
+  if (!validation.valid) return reply.code(400).send(validation.error!)
+
+  const id = validation.numericId!
+
+  // Buscar consulta com dados do paciente
+  const consulta = await prisma.consulta.findUnique({
+    where: { id },
+    include: {
+      paciente: true
+    }
+  })
+
+  if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+
+  const user = req.user as AuthenticatedUser
+  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+    return reply.code(403).send({ error: 'forbidden' })
+  }
+
+  return reply.send(consulta)
+}
+
 export async function listParticipants(req: RequestWithNumericId, reply: FastifyReply) {
   const validation = validateNumericId(req.params.id, 'consulta_id')
   if (!validation.valid) return reply.code(400).send(validation.error!)

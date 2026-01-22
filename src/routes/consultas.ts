@@ -1,8 +1,9 @@
 import { FastifyInstance } from 'fastify'
-import { createOrGetRoom, endConsulta, listParticipants, joinRoom, createRoomSimple, listConsultasAgendadas, listMedicos, agendarConsulta, confirmarConsulta, cancelarConsulta } from '../controllers/consultasController'
+import { createOrGetRoom, endConsulta, listParticipants, joinRoom, createRoomSimple, listConsultasAgendadas, listMedicos, agendarConsulta, confirmarConsulta, cancelarConsulta, getConsultaDetails } from '../controllers/consultasController'
 import { authenticateJWT } from '../middlewares/auth'
 
 export default async function consultasRoutes(fastify: FastifyInstance) {
+  fastify.route({ method: 'GET', url: '/consultas/:id', preHandler: authenticateJWT, handler: getConsultaDetails })
   fastify.route({ method: 'POST', url: '/consultas/:id/room', preHandler: authenticateJWT, handler: createOrGetRoom })
   // Novo endpoint: criar sala sem consulta
   fastify.route({ method: 'POST', url: '/rooms', preHandler: authenticateJWT, handler: createRoomSimple })
