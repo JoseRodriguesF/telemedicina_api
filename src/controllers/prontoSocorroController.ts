@@ -89,7 +89,7 @@ export async function criarSalaConsulta(req: FastifyRequest, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(consulta.id)
   const iceServers = await getIceServersWithFallback()
 
-  const { historiaClinicaId } = req.body as { historiaClinicaId?: number }
+  const { historiaClinicaId } = (req.body ?? {}) as { historiaClinicaId?: number }
   if (historiaClinicaId) {
     try {
       await prisma.historiaClinica.updateMany({
