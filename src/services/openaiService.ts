@@ -129,7 +129,7 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
    3. Adicione exatamente: [TRIAGEM_CONCLUIDA]
    4. Adicione exatamente: [DADOS_ESTRUTURADOS] seguido do JSON abaixo em UMA ÚNICA LINHA:
    
-   {"queixa_principal":"texto corrigido","descricao_sintomas":"texto corrigido e detalhado","historico_pessoal":{"doencas":[],"alergias":[],"tratamentos_anteriores":[],"cirurgias":[],"exames_realizados":[],"medicamentos_atuais":[],"medicamentos_alergicos":[]},"antecedentes_familiares":{"pai":{"vivo":true,"doencas":[]},"mae":{"vivo":true,"doencas":[]},"irmaos":[],"observacoes":""},"estilo_vida":{"alimentacao":{"dieta":"","restricoes":[],"habitos":""},"atividade_fisica":{"frequencia":"","tipo":"","intensidade":""},"sono":{"horas_por_noite":0,"qualidade":"","disturbios":[]},"tabagismo":{"status":"","anos_fumou":0,"anos_sem_fumar":0},"alcool":{"consumo":"","frequencia":"","quantidade":""},"drogas":{"uso":"","tipo":null}},"historico_vacinacao":""}
+  {"queixa_principal":"texto","descricao_sintomas":"texto","historico_pessoal":{"doencas":[],"alergias":[],"tratamentos_anteriores":[],"cirurgias":[],"exames_realizados":[],"medicamentos_atuais":[],"medicamentos_alergicos":[]},"antecedentes_familiares":{"pai":{"vivo":true,"doencas":[]},"mae":{"vivo":true,"doencas":[]},"irmaos":[],"observacoes":""},"estilo_vida":{"alimentacao":{"dieta":"","restricoes":[],"habitos":""},"atividade_fisica":{"frequencia":"","tipo":"","intensidade":""},"sono":{"horas_por_noite":0,"qualidade":"","disturbios":[]},"tabagismo":{"status":"","anos_fumou":0,"anos_sem_fumar":0},"alcool":{"consumo":"","frequencia":"","quantidade":""},"drogas":{"uso":"","tipo":null}},"historico_vacinacao":""}
    
    ⚠️ REGRAS DO JSON:
    - Use null para valores não informados
