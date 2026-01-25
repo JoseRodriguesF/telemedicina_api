@@ -28,7 +28,14 @@ export async function createOrGetRoom(req: RequestWithNumericId, reply: FastifyR
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
   const user = req.user as AuthenticatedUser
-  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  const { medicoId, pacienteId } = await resolveUserProfiles(user.id)
+  const isAuthorized = (medicoId && medicoId === consulta.medicoId) ||
+    (pacienteId && pacienteId === consulta.pacienteId) ||
+    (user.tipo_usuario === 'admin')
+
+  if (!isAuthorized) {
     return reply.code(403).send({ error: 'forbidden' })
   }
 
@@ -59,7 +66,14 @@ export async function getConsultaDetails(req: RequestWithNumericId, reply: Fasti
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
   const user = req.user as AuthenticatedUser
-  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  const { medicoId, pacienteId } = await resolveUserProfiles(user.id)
+  const isAuthorized = (medicoId && medicoId === consulta.medicoId) ||
+    (pacienteId && pacienteId === consulta.pacienteId) ||
+    (user.tipo_usuario === 'admin')
+
+  if (!isAuthorized) {
     return reply.code(403).send({ error: 'forbidden' })
   }
 
@@ -75,7 +89,14 @@ export async function listParticipants(req: RequestWithNumericId, reply: Fastify
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
   const user = req.user as AuthenticatedUser
-  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  const { medicoId, pacienteId } = await resolveUserProfiles(user.id)
+  const isAuthorized = (medicoId && medicoId === consulta.medicoId) ||
+    (pacienteId && pacienteId === consulta.pacienteId) ||
+    (user.tipo_usuario === 'admin')
+
+  if (!isAuthorized) {
     return reply.code(403).send({ error: 'forbidden' })
   }
 
@@ -95,7 +116,14 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
   const user = req.user as AuthenticatedUser
-  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  const { medicoId, pacienteId } = await resolveUserProfiles(user.id)
+  const isAuthorized = (medicoId && medicoId === consulta.medicoId) ||
+    (pacienteId && pacienteId === consulta.pacienteId) ||
+    (user.tipo_usuario === 'admin')
+
+  if (!isAuthorized) {
     return reply.code(403).send({ error: 'forbidden' })
   }
 
@@ -118,7 +146,14 @@ export async function joinRoom(
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
   const user = req.user as AuthenticatedUser
-  if (!user || (user.id !== consulta.medicoId && user.id !== consulta.pacienteId)) {
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  const { medicoId, pacienteId } = await resolveUserProfiles(user.id)
+  const isAuthorized = (medicoId && medicoId === consulta.medicoId) ||
+    (pacienteId && pacienteId === consulta.pacienteId) ||
+    (user.tipo_usuario === 'admin')
+
+  if (!isAuthorized) {
     return reply.code(403).send({ error: 'forbidden' })
   }
 
