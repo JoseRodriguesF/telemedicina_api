@@ -30,16 +30,7 @@ export class HistoriaClinicaService {
                 throw new ApiError('Paciente não encontrado', 404, 'PATIENT_NOT_FOUND')
             }
 
-            // Obter a próxima versão para este paciente
-            const ultimaVersao = await prisma.historiaClinica.findFirst({
-                where: { pacienteId },
-                orderBy: { versao: 'desc' },
-                select: { versao: true }
-            })
 
-            const proximaVersao = ultimaVersao ? ultimaVersao.versao + 1 : 1
-
-            // Criar nova história clínica
             const historiaClinica = await prisma.historiaClinica.create({
                 data: {
                     pacienteId,
@@ -49,18 +40,13 @@ export class HistoriaClinicaService {
                     antecedentesFamiliares: dados.antecedentes_familiares || {},
                     estiloVida: dados.estilo_vida || {},
                     historicoVacinacao: dados.historico_vacinacao || null,
-                    status: 'completo',
-                    criadoPor: usuarioId,
-                    atualizadoPor: usuarioId,
-                    dataConsulta: new Date(),
-                    versao: proximaVersao
+                    status: 'completo'
                 }
             })
 
             logger.info(`História clínica criada com sucesso`, {
                 historiaClinicaId: historiaClinica.id,
-                pacienteId,
-                versao: proximaVersao
+                pacienteId
             })
 
             return historiaClinica
@@ -78,18 +64,12 @@ export class HistoriaClinicaService {
         try {
             const historias = await prisma.historiaClinica.findMany({
                 where: { pacienteId },
-                orderBy: { versao: 'desc' },
+                orderBy: { createdAt: 'desc' },
                 include: {
                     paciente: {
                         select: {
                             id: true,
                             nome_completo: true
-                        }
-                    },
-                    usuarioCriador: {
-                        select: {
-                            id: true,
-                            email: true
                         }
                     }
                 }
@@ -109,7 +89,7 @@ export class HistoriaClinicaService {
         try {
             const historia = await prisma.historiaClinica.findFirst({
                 where: { pacienteId },
-                orderBy: { versao: 'desc' },
+                orderBy: { createdAt: 'desc' },
                 include: {
                     paciente: {
                         select: {
@@ -141,13 +121,6 @@ export class HistoriaClinicaService {
                             nome_completo: true,
                             data_nascimento: true,
                             sexo: true
-                        }
-                    },
-                    usuarioCriador: {
-                        select: {
-                            id: true,
-                            email: true,
-                            tipo_usuario: true
                         }
                     }
                 }

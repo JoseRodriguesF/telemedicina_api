@@ -130,7 +130,18 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(id)
   Rooms.end(roomId)
 
-  await updateConsultaStatus(id, 'finished')
+  const { hora_fim, repouso, destino_final, diagnostico } = (req.body ?? {}) as any
+
+  await prisma.consulta.update({
+    where: { id },
+    data: {
+      status: 'finished',
+      hora_fim: hora_fim ? new Date(`1970-01-01T${hora_fim}`) : undefined,
+      repouso,
+      destino_final,
+      diagnostico
+    }
+  })
   return reply.send({ ok: true })
 }
 

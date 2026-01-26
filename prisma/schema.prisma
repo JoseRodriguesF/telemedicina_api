@@ -17,8 +17,6 @@ model Usuario {
   medico       Medico?
   paciente     Paciente?
   enderecos    Endereco[]
-  historiaClinicaCriada      HistoriaClinica[] @relation("HistoriaClinicaCriadaPor")
-  historiaClinicaAtualizada  HistoriaClinica[] @relation("HistoriaClinicaAtualizadaPor")
 
   @@map("usuarios")
 }
@@ -106,8 +104,12 @@ model Consulta {
   data_consulta DateTime?     @map("data_consulta") @db.Date
   hora_inicio  DateTime?      @map("hora_inicio") @db.Time
   hora_fim     DateTime?      @map("hora_fim") @db.Time
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  resumo        String?         @db.Text
+  repouso       String?         @db.Text
+  destino_final String?         @map("destino_final") @db.Text
+  diagnostico   String?         @db.Text
 
   medico      Medico?         @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
   paciente    Paciente        @relation(name: "ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
@@ -133,23 +135,12 @@ model HistoriaClinica {
   status                  String   @default("rascunho") @db.VarChar(20)
   createdAt               DateTime @default(now()) @map("created_at")
   updatedAt               DateTime @updatedAt @map("updated_at")
-  criadoPor               Int?     @map("criado_por")
-  atualizadoPor           Int?     @map("atualizado_por")
-  dataConsulta            DateTime? @map("data_consulta") @db.Date
-  versao                  Int      @default(1)
 
   paciente         Paciente  @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
   consulta         Consulta? @relation(fields: [consultaId], references: [id], onDelete: SetNull)
-  usuarioCriador   Usuario?  @relation("HistoriaClinicaCriadaPor", fields: [criadoPor], references: [id], onDelete: SetNull)
-  usuarioAtualizador Usuario? @relation("HistoriaClinicaAtualizadaPor", fields: [atualizadoPor], references: [id], onDelete: SetNull)
-
-  @@unique([pacienteId, versao], name: "historiClinica_paciente_versao_key")
   @@index([pacienteId], name: "idx_historiaclinica_paciente_id")
   @@index([consultaId], name: "idx_historiaclinica_consulta_id")
   @@index([status], name: "idx_historiaclinica_status")
-  @@index([dataConsulta], name: "idx_historiaclinica_data_consulta")
-  @@index([criadoPor], name: "idx_historiaclinica_criado_por")
-  @@index([atualizadoPor], name: "idx_historiaclinica_atualizado_por")
   @@map("historiaClinica")
 }
 
