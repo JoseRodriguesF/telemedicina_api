@@ -173,23 +173,62 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
   const user = req.user as AuthenticatedUser
   if (!user) return reply.code(401).send({ error: 'unauthorized' })
 
-  const { pacienteId, medicoId } = await resolveUserProfiles(user.id)
+  console.log(`[getHistoricoCompleto] User: ${user.id} (${user.tipo_usuario}), Query:`, req.query)
 
-  if (!pacienteId && !medicoId) return reply.send([])
+  // Resolve os perfis vinculados ao usuário logado
+  const { pacienteId: profilePacienteId, medicoId: profileMedicoId } = await resolveUserProfiles(user.id)
+  const { pacienteId: queryPacienteId } = req.query as { pacienteId?: string }
 
-  const orConditions = buildUserProfileConditions(pacienteId, medicoId)
+  let where: any = {
+    status: 'finished'
+  }
 
-  const consultas = await prisma.consulta.findMany({
-    where: {
-      status: { in: ['in_progress', 'finished'] },
-      OR: orConditions
-    },
-    orderBy: { createdAt: 'desc' },
-    include: {
-      medico: { select: { nome_completo: true } },
-      paciente: { select: { nome_completo: true } }
+  // Se foi fornecido um pacienteId na query, buscamos o histórico daquele paciente específico
+  if (queryPacienteId) {
+    const validation = validateNumericId(queryPacienteId, 'pacienteId')
+    if (!validation.valid) return reply.code(400).send(validation.error!)
+    const targetPacienteId = validation.numericId
+
+    // Verificação de permissão: Médicos/Admins podem ver qualquer histórico de paciente.
+    // O próprio paciente também pode ver seu histórico.
+    const canAccessAll = user.tipo_usuario === 'medico' || user.tipo_usuario === 'admin' || profileMedicoId !== null
+    const isSelf = profilePacienteId === targetPacienteId
+
+    if (canAccessAll || isSelf) {
+      console.log(`[getHistoricoCompleto] Aplicando filtro de pacienteId: ${targetPacienteId}`)
+      where.pacienteId = targetPacienteId
+    } else {
+      console.warn(`[getHistoricoCompleto] Tentativa de acesso não autorizada: User ${user.id} -> Paciente ${targetPacienteId}`)
+      return reply.code(403).send({ error: 'forbidden', message: 'Você não tem permissão para visualizar este histórico de paciente.' })
     }
-  })
+  } else {
+    // Comportamento original/geral: retorna o histórico do usuário logado (seja médico ou paciente)
+    if (!profilePacienteId && !profileMedicoId) {
+      console.log('[getHistoricoCompleto] Usuário sem perfil de paciente ou médico.')
+      return reply.send([])
+    }
 
-  return reply.send(consultas)
+    // Constrói condições OR para filtrar por pacienteId OU medicoId do usuário logado
+    const orConditions: any[] = []
+    if (profilePacienteId) orConditions.push({ pacienteId: profilePacienteId })
+    if (profileMedicoId) orConditions.push({ medicoId: profileMedicoId })
+    where.OR = orConditions
+  }
+
+  try {
+    const consultas = await prisma.consulta.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        medico: { select: { nome_completo: true } },
+        paciente: { select: { nome_completo: true } }
+      }
+    })
+
+    console.log(`[getHistoricoCompleto] Consulta finalizada. Itens encontrados: ${consultas.length}`)
+    return reply.send(consultas)
+  } catch (error) {
+    console.error('[getHistoricoCompleto] Erro Prisma:', error)
+    return reply.code(500).send({ error: 'internal_server_error', message: 'Erro ao buscar histórico de consultas' })
+  }
 }
