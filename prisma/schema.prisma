@@ -110,6 +110,8 @@ model Consulta {
   repouso       String?         @db.Text
   destino_final String?         @map("destino_final") @db.Text
   diagnostico   String?         @db.Text
+  evolucao      String?         @db.Text
+  plano_terapeutico String?     @map("plano_terapeutico") @db.Text
 
   medico      Medico?         @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
   paciente    Paciente        @relation(name: "ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
