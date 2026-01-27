@@ -82,7 +82,8 @@ export async function criarSalaConsulta(req: FastifyRequest, reply: FastifyReply
     consulta = await createConsulta({
       medicoId: null as any,
       pacienteId,
-      status: 'scheduled'
+      status: 'scheduled',
+      data_consulta: new Date()
     })
   }
 
