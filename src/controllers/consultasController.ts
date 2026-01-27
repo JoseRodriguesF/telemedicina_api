@@ -136,7 +136,7 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
     where: { id },
     data: {
       status: 'finished',
-      hora_fim: hora_fim ? new Date(`1970-01-01T${hora_fim}`) : undefined,
+      hora_fim: hora_fim ? new Date(`1970-01-01T${hora_fim}`) : new Date(),
       repouso,
       destino_final,
       diagnostico,

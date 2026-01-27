@@ -44,7 +44,7 @@ export async function claimConsultaByMedico(
       medicoId: null,
       status: { in: ['scheduled', 'solicitada', 'agendada'] }
     },
-    data: { medicoId, status: 'in_progress' }
+    data: { medicoId, status: 'in_progress', hora_inicio: new Date() }
   })
 
   if (res.count === 0) {
