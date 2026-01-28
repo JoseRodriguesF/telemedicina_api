@@ -5,9 +5,7 @@ import { authenticateJWT } from '../middlewares/auth'
 const perfilController = new PerfilController()
 
 export async function perfilRoutes(app: FastifyInstance) {
-    // Todas as rotas de perfil requerem autenticação
-    app.addHook('onRequest', authenticateJWT)
-
-    app.get('/usuarios/me', perfilController.getMe.bind(perfilController))
-    app.patch('/usuarios/me', perfilController.updateMe.bind(perfilController))
+    // Aplicar authentication apenas nestas rotas
+    app.get('/usuarios/me', { preHandler: authenticateJWT }, perfilController.getMe.bind(perfilController))
+    app.patch('/usuarios/me', { preHandler: authenticateJWT }, perfilController.updateMe.bind(perfilController))
 }
