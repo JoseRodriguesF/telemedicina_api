@@ -9,6 +9,7 @@ import prontoSocorroRoutes from './routes/prontoSocorro'
 import { initSignalServer } from './server-signal'
 import { openaiRoutes } from './routes/openai'
 import { historiaClinicaRoutes } from './routes/historiaClinica'
+import { perfilRoutes } from './routes/perfil'
 import logger from './utils/logger'
 import { errorHandler } from './middlewares/errorHandler'
 
@@ -29,7 +30,8 @@ const start = async () => {
       consultasRoutes(server),
       prontoSocorroRoutes(server),
       openaiRoutes(server),
-      historiaClinicaRoutes(server)
+      historiaClinicaRoutes(server),
+      perfilRoutes(server)
     ])
 
     // Inicializar servidor HTTP
