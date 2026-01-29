@@ -1,5 +1,11 @@
 import { FastifyRequest } from 'fastify'
 
+declare module 'fastify' {
+    interface FastifyRequest {
+        user?: AuthenticatedUser
+    }
+}
+
 /**
  * Tipos para requests com params
  */

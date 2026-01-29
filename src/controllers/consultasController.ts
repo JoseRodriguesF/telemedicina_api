@@ -130,7 +130,7 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(id)
   Rooms.end(roomId)
 
-  const { hora_fim, repouso, destino_final, diagnostico, evolucao, plano_terapeutico } = (req.body ?? {}) as any
+  const { hora_fim, repouso, destino_final, diagnostico, evolucao, plano_terapeutico } = (req.body as any) || {}
 
   await prisma.consulta.update({
     where: { id },
@@ -216,10 +216,10 @@ export async function agendarConsulta(
 
   // Validação agora ocorre com o ID correto (seja vindo do body ou do perfil)
   const validation = validateNumericId(paciente_id, 'paciente_id')
-  if (!validation.valid) return reply.code(400).send(validation.error!)
+  if (!validation.valid || !paciente_id) return reply.code(400).send(validation.error || { error: 'invalid_paciente_id' })
 
   const pacienteId = validation.numericId!
-  const medicoId = medico_id === undefined ? null : Number(medico_id)
+  const medicoId = (medico_id === undefined || medico_id === null || String(medico_id) === '') ? null : Number(medico_id)
 
   // Validar data
   const dateValidation = validateDate(data_consulta)
@@ -265,10 +265,14 @@ export async function listConsultasAgendadas(req: RequestWithUserId, reply: Fast
   const where: any = { status: { in: ['agendada', 'solicitada'] } }
 
   if (userId) {
-    const validation = validateNumericId(userId, 'user_id')
-    if (!validation.valid) return reply.code(400).send(validation.error!)
+    const targetUserId = Number(userId)
 
-    const { pacienteId, medicoId } = await resolveUserProfiles(validation.numericId!)
+    // Segurança: Apenas o próprio usuário ou um administrador pode listar consultas por userId
+    if (user.id !== targetUserId && user.tipo_usuario !== 'admin') {
+      return reply.code(403).send({ error: 'forbidden', message: 'Você não tem permissão para ver consultas de outro usuário.' })
+    }
+
+    const { pacienteId, medicoId } = await resolveUserProfiles(targetUserId)
     const orConditions = buildUserProfileConditions(pacienteId, medicoId)
 
     if (orConditions.length === 0) return reply.send([])
@@ -465,16 +469,25 @@ export async function avaliarConsulta(req: RequestWithNumericId, reply: FastifyR
   }
 
   // Validate inputs
-  const { estrelas, avaliacao } = req.body as { estrelas: number, avaliacao?: string }
+  const body = req.body as { estrelas?: number | string, avaliacao?: string } | null
+  const { estrelas, avaliacao } = body || {}
 
-  if (!estrelas || !Number.isInteger(estrelas) || estrelas < 1 || estrelas > 5) {
+  if (estrelas === undefined || estrelas === null || !Number.isInteger(Number(estrelas))) {
     return reply.code(400).send({
       error: 'invalid_rating',
       message: 'Estrelas deve ser um número inteiro entre 1 e 5.'
     })
   }
 
-  if (estrelas < 5 && (!avaliacao || avaliacao.trim() === '')) {
+  const numEstrelas = Number(estrelas)
+  if (numEstrelas < 1 || numEstrelas > 5) {
+    return reply.code(400).send({
+      error: 'invalid_rating',
+      message: 'Estrelas deve ser entre 1 e 5.'
+    })
+  }
+
+  if (numEstrelas < 5 && (!avaliacao || String(avaliacao).trim() === '')) {
     return reply.code(400).send({
       error: 'justification_required',
       message: 'Justificativa é obrigatória para avaliações menores que 5 estrelas.'
@@ -486,14 +499,14 @@ export async function avaliarConsulta(req: RequestWithNumericId, reply: FastifyR
     await prisma.consulta.update({
       where: { id },
       data: {
-        estrelas,
-        avaliacao
-      }
+        estrelas: numEstrelas,
+        avaliacao: avaliacao || null
+      } as any
     })
 
     // Update Medico Average Logic
     if (consulta.medicoId) {
-      const ratings = await prisma.consulta.findMany({
+      const ratings = await (prisma.consulta as any).findMany({
         where: {
           medicoId: consulta.medicoId,
           estrelas: { not: null }
@@ -502,12 +515,12 @@ export async function avaliarConsulta(req: RequestWithNumericId, reply: FastifyR
       })
 
       if (ratings.length > 0) {
-        const totalStars = ratings.reduce((acc, curr) => acc + (curr.estrelas || 0), 0)
+        const totalStars = ratings.reduce((acc: number, curr: any) => acc + (curr.estrelas || 0), 0)
         const average = totalStars / ratings.length
 
         await prisma.medico.update({
           where: { id: consulta.medicoId },
-          data: { avaliacao: average }
+          data: { avaliacao: average } as any
         })
       }
     }
