@@ -52,6 +52,7 @@ model Medico {
   assinatura_digital_url      String?  @db.VarChar(255)
   seguro_responsabilidade_url String?  @db.VarChar(255)
   verificacao                 StatusVerificacao @default(analise)
+  avaliacao                   Float?   @default(0)
   usuario                     Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   consultas                   Consulta[] @relation("ConsultaMedico")
 
@@ -116,6 +117,9 @@ model Consulta {
   medico      Medico?         @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
   paciente    Paciente        @relation(name: "ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
   historiaClinica HistoriaClinica[]
+
+  avaliacao   String?         @db.Text
+  estrelas    Int?
 
   @@index([medicoId], name: "idx_consultas_medico_id")
   @@index([pacienteId], name: "idx_consultas_paciente_id")

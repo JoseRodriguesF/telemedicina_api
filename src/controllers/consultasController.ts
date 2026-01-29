@@ -436,3 +436,86 @@ export async function listMedicos(req: FastifyRequest, reply: FastifyReply) {
 
   return reply.send(medicos)
 }
+
+export async function avaliarConsulta(req: RequestWithNumericId, reply: FastifyReply) {
+  const validation = validateNumericId(req.params.id, 'consulta_id')
+  if (!validation.valid) return reply.code(400).send(validation.error!)
+
+  const id = validation.numericId!
+  const consulta = await getConsultaById(id)
+  if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+
+  const user = req.user as AuthenticatedUser
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  // Verify if user is patient
+  if (user.tipo_usuario !== 'paciente') {
+    return reply.code(403).send({
+      error: 'only_patients_can_rate',
+      message: 'Apenas pacientes podem avaliar consultas.'
+    })
+  }
+
+  const { pacienteId } = await resolveUserProfiles(user.id)
+  if (!pacienteId || consulta.pacienteId !== pacienteId) {
+    return reply.code(403).send({
+      error: 'forbidden',
+      message: 'Você só pode avaliar suas próprias consultas.'
+    })
+  }
+
+  // Validate inputs
+  const { estrelas, avaliacao } = req.body as { estrelas: number, avaliacao?: string }
+
+  if (!estrelas || !Number.isInteger(estrelas) || estrelas < 1 || estrelas > 5) {
+    return reply.code(400).send({
+      error: 'invalid_rating',
+      message: 'Estrelas deve ser um número inteiro entre 1 e 5.'
+    })
+  }
+
+  if (estrelas < 5 && (!avaliacao || avaliacao.trim() === '')) {
+    return reply.code(400).send({
+      error: 'justification_required',
+      message: 'Justificativa é obrigatória para avaliações menores que 5 estrelas.'
+    })
+  }
+
+  try {
+    // Update Consulta
+    await prisma.consulta.update({
+      where: { id },
+      data: {
+        estrelas,
+        avaliacao
+      }
+    })
+
+    // Update Medico Average Logic
+    if (consulta.medicoId) {
+      const ratings = await prisma.consulta.findMany({
+        where: {
+          medicoId: consulta.medicoId,
+          estrelas: { not: null }
+        },
+        select: { estrelas: true }
+      })
+
+      if (ratings.length > 0) {
+        const totalStars = ratings.reduce((acc, curr) => acc + (curr.estrelas || 0), 0)
+        const average = totalStars / ratings.length
+
+        await prisma.medico.update({
+          where: { id: consulta.medicoId },
+          data: { avaliacao: average }
+        })
+      }
+    }
+
+    return reply.send({ ok: true, message: 'Avaliação registrada com sucesso.' })
+
+  } catch (err: any) {
+    logger.error('Erro ao avaliar consulta', err, { consultaId: id, userId: user.id })
+    return reply.code(500).send({ error: 'internal_error', details: err.message })
+  }
+}
