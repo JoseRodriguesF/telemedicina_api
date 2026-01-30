@@ -15,6 +15,9 @@ import { errorHandler } from './middlewares/errorHandler'
 
 dotenv.config()
 
+// Garantir que o servidor utilize o fuso horário local de Brasília para sincronização
+process.env.TZ = 'America/Sao_Paulo';
+
 const server = Fastify({ logger: false }) // Desativar logger padrão do Fastify
 
 // Registrar middleware de erro

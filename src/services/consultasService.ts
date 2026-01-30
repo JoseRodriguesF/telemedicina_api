@@ -44,7 +44,12 @@ export async function claimConsultaByMedico(
       medicoId: null,
       status: { in: ['scheduled', 'solicitada', 'agendada'] }
     },
-    data: { medicoId, status: 'in_progress', hora_inicio: new Date() }
+    data: {
+      medicoId,
+      status: 'in_progress',
+      // Usar a hora atual do servidor como UTC
+      hora_inicio: new Date()
+    }
   })
 
   if (res.count === 0) {
