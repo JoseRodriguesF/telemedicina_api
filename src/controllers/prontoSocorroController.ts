@@ -114,6 +114,16 @@ export async function listarFila(req: FastifyRequest, reply: FastifyReply) {
     return reply.code(403).send({ error: 'forbidden_only_medico_can_list_queue' })
   }
 
+  const { medicoId } = await resolveUserProfiles(user.id)
+  if (!medicoId) {
+    return reply.code(409).send({ error: 'medico_record_not_found_for_usuario' })
+  }
+
+  const medico = await prisma.medico.findUnique({ where: { id: medicoId } })
+  if (medico?.verificacao !== 'verificado') {
+    return reply.code(403).send({ error: 'medico_not_verified' })
+  }
+
   const consultas = await prisma.consulta.findMany({
     where: { status: 'scheduled', medicoId: null },
     select: { id: true, pacienteId: true }
@@ -150,6 +160,10 @@ export async function claimConsulta(req: RequestWithConsultaId, reply: FastifyRe
     const { medicoId } = await resolveUserProfiles(user.id)
     if (!medicoId) {
       return reply.code(409).send({ error: 'medico_record_not_found_for_usuario' })
+    }
+    const medico = await prisma.medico.findUnique({ where: { id: medicoId } })
+    if (medico?.verificacao !== 'verificado') {
+      return reply.code(403).send({ error: 'medico_not_verified' })
     }
     result = await claimConsultaByMedico(consultaId, medicoId)
   } else if (user.tipo_usuario === 'paciente') {

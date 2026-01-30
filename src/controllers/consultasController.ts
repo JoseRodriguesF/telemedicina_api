@@ -221,6 +221,17 @@ export async function agendarConsulta(
   const pacienteId = validation.numericId!
   const medicoId = (medico_id === undefined || medico_id === null || String(medico_id) === '') ? null : Number(medico_id)
 
+  // Validar se o médico selecionado está verificado
+  if (medicoId) {
+    const med = await prisma.medico.findUnique({ where: { id: medicoId } })
+    if (!med || med.verificacao !== 'verificado') {
+      return reply.code(400).send({
+        error: 'medico_not_verified',
+        message: 'O médico selecionado ainda não foi verificado.'
+      })
+    }
+  }
+
   // Validar data
   const dateValidation = validateDate(data_consulta)
   if (!dateValidation.valid) return reply.code(400).send(dateValidation.error!)
@@ -354,7 +365,8 @@ export async function cancelarConsulta(req: RequestWithNumericId, reply: Fastify
       // Busca o primeiro médico que não seja o atual
       const replacementDoctor = await prisma.medico.findFirst({
         where: {
-          id: { not: medicoId }
+          id: { not: medicoId },
+          verificacao: 'verificado'
         }
       })
 
@@ -435,6 +447,9 @@ export async function listMedicos(req: FastifyRequest, reply: FastifyReply) {
   if (!user) return reply.code(401).send({ error: 'unauthorized' })
 
   const medicos = await prisma.medico.findMany({
+    where: {
+      verificacao: 'verificado'
+    },
     select: { id: true, nome_completo: true }
   })
 
