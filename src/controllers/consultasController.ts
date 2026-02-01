@@ -306,7 +306,8 @@ export async function listConsultasAgendadas(req: RequestWithUserId, reply: Fast
     ],
     include: {
       medico: { select: { id: true, nome_completo: true } },
-      paciente: { select: { id: true, nome_completo: true } }
+      paciente: { select: { id: true, nome_completo: true } },
+      historiaClinica: true
     }
   })
 

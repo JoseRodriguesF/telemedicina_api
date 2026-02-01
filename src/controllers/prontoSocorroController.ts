@@ -126,7 +126,15 @@ export async function listarFila(req: FastifyRequest, reply: FastifyReply) {
 
   const consultas = await prisma.consulta.findMany({
     where: { status: 'scheduled', medicoId: null },
-    select: { id: true, pacienteId: true }
+    select: {
+      id: true,
+      pacienteId: true,
+      createdAt: true,
+      paciente: {
+        select: { nome_completo: true }
+      },
+      historiaClinica: true
+    }
   })
 
   const items = consultas.map(c => {
@@ -134,8 +142,10 @@ export async function listarFila(req: FastifyRequest, reply: FastifyReply) {
     return {
       consultaId: c.id,
       pacienteId: c.pacienteId,
+      pacienteNome: c.paciente.nome_completo,
+      historiaClinica: c.historiaClinica,
       roomId,
-      createdAt: Date.now(),
+      createdAt: c.createdAt,
       status: 'scheduled' as const
     }
   })
