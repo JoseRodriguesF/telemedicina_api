@@ -2,6 +2,7 @@ import { FastifyReply, FastifyRequest } from 'fastify'
 import { Rooms } from '../utils/rooms'
 import { createConsulta, getConsultaById, claimConsultaByMedico, reconnectConsultaByPaciente } from '../services/consultasService'
 import prisma from '../config/database'
+import logger from '../utils/logger'
 import {
   getIceServersWithFallback,
   resolveUserProfiles,
@@ -98,7 +99,7 @@ export async function criarSalaConsulta(req: FastifyRequest, reply: FastifyReply
         data: { consultaId: consulta.id }
       })
     } catch (error) {
-      console.error('Erro ao vincular história clínica à consulta:', error)
+      logger.error('Erro ao vincular história clínica à consulta', error as Error, { historiaClinicaId, consultaId: consulta.id })
       // Não falhar a requisição principal
     }
   }
@@ -198,7 +199,7 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
   const user = req.user as AuthenticatedUser
   if (!user) return reply.code(401).send({ error: 'unauthorized' })
 
-  console.log(`[getHistoricoCompleto] User: ${user.id} (${user.tipo_usuario}), Query:`, req.query)
+  logger.info('getHistoricoCompleto chamado', { userId: user.id, tipoUsuario: user.tipo_usuario, query: req.query })
 
   // Resolve os perfis vinculados ao usuário logado
   const { pacienteId: profilePacienteId, medicoId: profileMedicoId } = await resolveUserProfiles(user.id)
@@ -220,16 +221,16 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
     const isSelf = profilePacienteId === targetPacienteId
 
     if (canAccessAll || isSelf) {
-      console.log(`[getHistoricoCompleto] Aplicando filtro de pacienteId: ${targetPacienteId}`)
+      logger.debug('Aplicando filtro de pacienteId', { targetPacienteId })
       where.pacienteId = targetPacienteId
     } else {
-      console.warn(`[getHistoricoCompleto] Tentativa de acesso não autorizada: User ${user.id} -> Paciente ${targetPacienteId}`)
+      logger.warn('Tentativa de acesso não autorizada ao histórico', { userId: user.id, targetPacienteId })
       return reply.code(403).send({ error: 'forbidden', message: 'Você não tem permissão para visualizar este histórico de paciente.' })
     }
   } else {
     // Comportamento original/geral: retorna o histórico do usuário logado (seja médico ou paciente)
     if (!profilePacienteId && !profileMedicoId) {
-      console.log('[getHistoricoCompleto] Usuário sem perfil de paciente ou médico.')
+      logger.debug('Usuário sem perfil de paciente ou médico', { userId: user.id })
       return reply.send([])
     }
 
@@ -250,10 +251,10 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
       }
     })
 
-    console.log(`[getHistoricoCompleto] Consulta finalizada. Itens encontrados: ${consultas.length}`)
+    logger.info('Histórico completo recuperado', { count: consultas.length })
     return reply.send(consultas)
   } catch (error) {
-    console.error('[getHistoricoCompleto] Erro Prisma:', error)
+    logger.error('Erro ao buscar histórico completo', error as Error, { userId: user.id })
     return reply.code(500).send({ error: 'internal_server_error', message: 'Erro ao buscar histórico de consultas' })
   }
 }

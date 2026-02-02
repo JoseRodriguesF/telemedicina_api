@@ -62,14 +62,3 @@ export interface ServiceResult<T = any> {
     error?: string
     message?: string
 }
-
-/**
- * Item da fila (não usado atualmente, mas mantido para referência)
- */
-export interface FilaItem {
-    consultaId: number
-    pacienteId: number
-    roomId: string
-    createdAt: number
-    status: 'scheduled' | 'in_progress'
-}
