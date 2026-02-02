@@ -251,6 +251,13 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
     })
 
     console.log(`[getHistoricoCompleto] Consulta finalizada. Itens encontrados: ${consultas.length}`)
+
+    if (user.tipo_usuario === 'paciente') {
+      consultas.forEach((c: any) => {
+        c.transcricao = undefined
+      })
+    }
+
     return reply.send(consultas)
   } catch (error) {
     console.error('[getHistoricoCompleto] Erro Prisma:', error)

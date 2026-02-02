@@ -120,6 +120,7 @@ model Consulta {
 
   avaliacao   String?         @db.Text
   estrelas    Int?
+  transcricao String?         @db.Text
 
   @@index([medicoId], name: "idx_consultas_medico_id")
   @@index([pacienteId], name: "idx_consultas_paciente_id")

@@ -77,6 +77,10 @@ export async function getConsultaDetails(req: RequestWithNumericId, reply: Fasti
     return reply.code(403).send({ error: 'forbidden' })
   }
 
+  if (user.tipo_usuario === 'paciente') {
+    (consulta as any).transcricao = undefined
+  }
+
   return reply.send(consulta)
 }
 
@@ -130,7 +134,7 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(id)
   Rooms.end(roomId)
 
-  const { hora_fim, repouso, destino_final, diagnostico, evolucao, plano_terapeutico } = (req.body as any) || {}
+  const { hora_fim, repouso, destino_final, diagnostico, evolucao, plano_terapeutico, transcricao } = (req.body as any) || {}
 
   await prisma.consulta.update({
     where: { id },
@@ -141,8 +145,9 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
       destino_final,
       diagnostico,
       evolucao,
-      plano_terapeutico
-    }
+      plano_terapeutico,
+      transcricao
+    } as any
   })
   return reply.send({ ok: true })
 }
