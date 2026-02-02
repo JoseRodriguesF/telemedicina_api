@@ -51,6 +51,8 @@ export interface AuthenticatedUser {
     id: number
     email: string
     tipo_usuario: TipoUsuario
+    medicoId?: number | null
+    pacienteId?: number | null
 }
 
 /**

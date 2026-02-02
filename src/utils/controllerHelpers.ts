@@ -14,35 +14,6 @@ export async function getIceServersWithFallback(): Promise<any[]> {
 }
 
 /**
- * Helper para resolver usuario_id para pacienteId e/ou medicoId
- */
-export async function resolveUserProfiles(userId: number) {
-    const prisma = (await import('../config/database')).default
-
-    const [paciente, medico] = await Promise.all([
-        prisma.paciente.findUnique({ where: { usuario_id: userId }, select: { id: true } }),
-        prisma.medico.findUnique({ where: { usuario_id: userId }, select: { id: true } })
-    ])
-
-    return {
-        pacienteId: paciente?.id || null,
-        medicoId: medico?.id || null,
-        hasPaciente: !!paciente,
-        hasMedico: !!medico
-    }
-}
-
-/**
- * Helper para gerar condições OR do Prisma baseadas em perfis
- */
-export function buildUserProfileConditions(pacienteId: number | null, medicoId: number | null) {
-    const orConditions: any[] = []
-    if (pacienteId) orConditions.push({ pacienteId })
-    if (medicoId) orConditions.push({ medicoId })
-    return orConditions
-}
-
-/**
  * Valida se um ID numérico é válido
  */
 export function validateNumericId(id: any, fieldName = 'id'): { valid: boolean; numericId?: number; error?: object } {

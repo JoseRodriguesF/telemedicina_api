@@ -22,13 +22,12 @@ export const authenticateJWT = async (request: FastifyRequest, reply: FastifyRep
   try {
     const decoded = verifyJWT(token) as JWTPayload
 
-    // Buscar usuário completo no banco (cache poderia ser adicionado aqui)
+    // Buscar usuário completo no banco e perfis vinculados
     const usuario = await prisma.usuario.findUnique({
       where: { id: decoded.id },
-      select: {
-        id: true,
-        email: true,
-        tipo_usuario: true
+      include: {
+        paciente: { select: { id: true } },
+        medico: { select: { id: true } }
       }
     })
 
@@ -37,8 +36,14 @@ export const authenticateJWT = async (request: FastifyRequest, reply: FastifyRep
       return reply.code(401).send({ error: 'unauthorized', message: 'Usuário não encontrado' })
     }
 
-    // Anexa o usuário ao request com tipo correto
-    request.user = usuario as AuthenticatedUser
+    // Anexa o usuário ao request com tipo correto e IDs de perfil resolvidos
+    request.user = {
+      id: usuario.id,
+      email: usuario.email,
+      tipo_usuario: usuario.tipo_usuario as any,
+      pacienteId: usuario.paciente?.id || null,
+      medicoId: usuario.medico?.id || null
+    }
   } catch (error: any) {
     logger.debug('JWT verification failed', { error: error.message })
     return reply.code(401).send({ error: 'unauthorized', message: 'Token inválido ou expirado' })

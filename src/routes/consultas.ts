@@ -3,18 +3,19 @@ import { createOrGetRoom, endConsulta, listParticipants, joinRoom, createRoomSim
 import { authenticateJWT } from '../middlewares/auth'
 
 export default async function consultasRoutes(fastify: FastifyInstance) {
-  fastify.route({ method: 'GET', url: '/consultas/:id', preHandler: authenticateJWT, handler: getConsultaDetails })
-  fastify.route({ method: 'POST', url: '/consultas/:id/room', preHandler: authenticateJWT, handler: createOrGetRoom })
-  // Novo endpoint: criar sala sem consulta
-  fastify.route({ method: 'POST', url: '/rooms', preHandler: authenticateJWT, handler: createRoomSimple })
+  fastify.get('/consultas/:id', { preHandler: authenticateJWT }, getConsultaDetails as any)
+  fastify.post('/consultas/:id/room', { preHandler: authenticateJWT }, createOrGetRoom as any)
+  fastify.post('/rooms', { preHandler: authenticateJWT }, createRoomSimple as any)
+
   // Agendamentos
-  fastify.route({ method: 'POST', url: '/consultas/agendar', preHandler: authenticateJWT, handler: agendarConsulta })
-  fastify.route({ method: 'GET', url: '/consultas/agendadas', preHandler: authenticateJWT, handler: listConsultasAgendadas })
-  fastify.route({ method: 'PATCH', url: '/consultas/:id/confirmar', preHandler: authenticateJWT, handler: confirmarConsulta })
-  fastify.route({ method: 'DELETE', url: '/consultas/:id', preHandler: authenticateJWT, handler: cancelarConsulta })
-  fastify.route({ method: 'GET', url: '/medicos', preHandler: authenticateJWT, handler: listMedicos })
-  fastify.route({ method: 'POST', url: '/consultas/:id/join', preHandler: authenticateJWT, handler: joinRoom })
-  fastify.route({ method: 'GET', url: '/consultas/:id/participants', preHandler: authenticateJWT, handler: listParticipants })
-  fastify.route({ method: 'POST', url: '/consultas/:id/end', preHandler: authenticateJWT, handler: endConsulta })
-  fastify.route({ method: 'POST', url: '/consultas/:id/avaliacao', preHandler: authenticateJWT, handler: avaliarConsulta })
+  fastify.post('/consultas/agendar', { preHandler: authenticateJWT }, agendarConsulta as any)
+  fastify.get('/consultas/agendadas', { preHandler: authenticateJWT }, listConsultasAgendadas as any)
+  fastify.patch('/consultas/:id/confirmar', { preHandler: authenticateJWT }, confirmarConsulta as any)
+  fastify.delete('/consultas/:id', { preHandler: authenticateJWT }, cancelarConsulta as any)
+
+  fastify.get('/medicos', { preHandler: authenticateJWT }, listMedicos as any)
+  fastify.post('/consultas/:id/join', { preHandler: authenticateJWT }, joinRoom as any)
+  fastify.get('/consultas/:id/participants', { preHandler: authenticateJWT }, listParticipants as any)
+  fastify.post('/consultas/:id/end', { preHandler: authenticateJWT }, endConsulta as any)
+  fastify.post('/consultas/:id/avaliacao', { preHandler: authenticateJWT }, avaliarConsulta as any)
 }

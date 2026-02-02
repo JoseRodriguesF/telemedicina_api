@@ -5,6 +5,13 @@ export async function getConsultaById(id: number) {
   return prisma.consulta.findUnique({ where: { id } })
 }
 
+export async function getConsultaWithPatient(id: number) {
+  return prisma.consulta.findUnique({
+    where: { id },
+    include: { paciente: true }
+  })
+}
+
 export async function updateConsultaStatus(id: number, status: ConsultaStatus) {
   return prisma.consulta.update({ where: { id }, data: { status } })
 }
@@ -153,4 +160,57 @@ export async function cancelConsulta(
   // Deletar consulta
   await prisma.consulta.delete({ where: { id: consultaId } })
   return { ok: true, data: { action: 'deleted' }, message: 'Consulta cancelada com sucesso' }
+}
+
+export async function listConsultasScheduled(where: any) {
+  return prisma.consulta.findMany({
+    where: {
+      ...where,
+      status: { in: ['agendada', 'solicitada'] }
+    },
+    orderBy: [
+      { data_consulta: 'asc' },
+      { hora_inicio: 'asc' }
+    ],
+    include: {
+      medico: { select: { id: true, nome_completo: true } },
+      paciente: { select: { id: true, nome_completo: true } },
+      historiaClinica: true
+    }
+  })
+}
+
+export async function evaluateConsulta(consultaId: number, numEstrelas: number, avaliacao?: string) {
+  const consulta = await prisma.consulta.findUnique({ where: { id: consultaId } })
+  if (!consulta) throw new Error('consulta_not_found')
+
+  // Update Consulta
+  await prisma.consulta.update({
+    where: { id: consultaId },
+    data: {
+      estrelas: numEstrelas,
+      avaliacao: avaliacao || null
+    } as any
+  })
+
+  // Update Medico Average
+  if (consulta.medicoId) {
+    const ratings = await prisma.consulta.findMany({
+      where: {
+        medicoId: consulta.medicoId,
+        estrelas: { not: null }
+      },
+      select: { estrelas: true }
+    })
+
+    if (ratings.length > 0) {
+      const totalStars = ratings.reduce((acc: number, curr: any) => acc + (curr.estrelas || 0), 0)
+      const average = totalStars / ratings.length
+
+      await prisma.medico.update({
+        where: { id: consulta.medicoId },
+        data: { avaliacao: average } as any
+      })
+    }
+  }
 }

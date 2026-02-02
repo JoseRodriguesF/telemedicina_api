@@ -1,6 +1,5 @@
 import { FastifyRequest, FastifyReply } from 'fastify'
 import { AuthenticatedUser } from '../types/shared'
-import { resolveUserProfiles } from '../utils/controllerHelpers'
 import prisma from '../config/database'
 import logger from '../utils/logger'
 
@@ -36,18 +35,17 @@ export async function authorizeConsultaAccess(
     }
 
     // Verificar autorização
-    const { medicoId, pacienteId } = await resolveUserProfiles(user.id)
     const isAuthorized =
-        (medicoId && medicoId === consulta.medicoId) ||
-        (pacienteId && pacienteId === consulta.pacienteId) ||
+        (user.medicoId && user.medicoId === consulta.medicoId) ||
+        (user.pacienteId && user.pacienteId === consulta.pacienteId) ||
         user.tipo_usuario === 'admin'
 
     if (!isAuthorized) {
         logger.warn('Tentativa de acesso não autorizado a consulta', {
             userId: user.id,
             consultaId,
-            userMedicoId: medicoId,
-            userPacienteId: pacienteId
+            userMedicoId: user.medicoId,
+            userPacienteId: user.pacienteId
         })
         return reply.code(403).send({ error: 'forbidden', message: 'Acesso negado a esta consulta' })
     }
@@ -72,7 +70,7 @@ export async function requireVerifiedMedico(request: FastifyRequest, reply: Fast
         })
     }
 
-    const { medicoId } = await resolveUserProfiles(user.id)
+    const medicoId = user.medicoId
     if (!medicoId) {
         return reply.code(409).send({
             error: 'medico_record_not_found',
@@ -112,7 +110,7 @@ export async function requirePaciente(request: FastifyRequest, reply: FastifyRep
         })
     }
 
-    const { pacienteId } = await resolveUserProfiles(user.id)
+    const pacienteId = user.pacienteId
     if (!pacienteId) {
         return reply.code(409).send({
             error: 'paciente_record_not_found',

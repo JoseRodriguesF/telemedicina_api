@@ -1,15 +1,8 @@
 import Fastify from 'fastify'
 import prisma from './config/database'
 import dotenv from 'dotenv'
-import { registerRoutes } from './routes/register'
-import { loginRoutes } from './routes/login'
-import { googleRoutes } from './routes/google'
-import consultasRoutes from './routes/consultas'
-import prontoSocorroRoutes from './routes/prontoSocorro'
+import { appRoutes } from './routes/index'
 import { initSignalServer } from './server-signal'
-import { openaiRoutes } from './routes/openai'
-import { historiaClinicaRoutes } from './routes/historiaClinica'
-import { perfilRoutes } from './routes/perfil'
 import logger from './utils/logger'
 import { errorHandler } from './middlewares/errorHandler'
 
@@ -25,17 +18,8 @@ server.setErrorHandler(errorHandler)
 
 const start = async () => {
   try {
-    // Registrar todas as rotas
-    await Promise.all([
-      registerRoutes(server),
-      loginRoutes(server),
-      googleRoutes(server),
-      consultasRoutes(server),
-      prontoSocorroRoutes(server),
-      openaiRoutes(server),
-      historiaClinicaRoutes(server),
-      perfilRoutes(server)
-    ])
+    // Registrar todas as rotas centralizadas
+    await server.register(appRoutes)
 
     // Inicializar servidor HTTP
     await server.listen({

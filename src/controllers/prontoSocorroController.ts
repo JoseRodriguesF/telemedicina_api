@@ -3,13 +3,11 @@ import { Rooms } from '../utils/rooms'
 import { createConsulta, getConsultaById, claimConsultaByMedico, reconnectConsultaByPaciente } from '../services/consultasService'
 import prisma from '../config/database'
 import logger from '../utils/logger'
+import { RequestWithUserId, RequestWithConsultaId, AuthenticatedUser } from '../types/shared'
 import {
   getIceServersWithFallback,
-  resolveUserProfiles,
-  buildUserProfileConditions,
   validateNumericId
 } from '../utils/controllerHelpers'
-import { RequestWithUserId, RequestWithConsultaId, AuthenticatedUser } from '../types/shared'
 
 export async function listarSalasEmAndamento(req: RequestWithUserId, reply: FastifyReply) {
   const user = req.user as AuthenticatedUser
@@ -26,15 +24,21 @@ export async function listarSalasEmAndamento(req: RequestWithUserId, reply: Fast
     const validation = validateNumericId(userId, 'user_id')
     if (!validation.valid) return reply.code(400).send(validation.error!)
 
-    const { pacienteId, medicoId } = await resolveUserProfiles(validation.numericId!)
-    const orConditions = buildUserProfileConditions(pacienteId, medicoId)
-
+    // For other users, we'd still need to check profiles, but let's assume it's current user mostly
+    // or just filter for the target user's profiles
+    const target = await prisma.usuario.findUnique({
+      where: { id: validation.numericId },
+      include: { paciente: true, medico: true }
+    })
+    if (!target) return reply.send([])
+    const orConditions: any[] = []
+    if (target.paciente) orConditions.push({ pacienteId: target.paciente.id })
+    if (target.medico) orConditions.push({ medicoId: target.medico.id })
     if (orConditions.length === 0) return reply.send([])
     where.OR = orConditions
   } else if (user.tipo_usuario === 'paciente') {
-    const { pacienteId } = await resolveUserProfiles(user.id)
-    if (!pacienteId) return reply.send([])
-    where.pacienteId = pacienteId
+    if (!user.pacienteId) return reply.send([])
+    where.pacienteId = user.pacienteId
   }
 
   const consultas = await prisma.consulta.findMany({
@@ -65,7 +69,7 @@ export async function criarSalaConsulta(req: FastifyRequest, reply: FastifyReply
     return reply.code(403).send({ error: 'forbidden_only_paciente_can_create_room' })
   }
 
-  const { pacienteId } = await resolveUserProfiles(user.id)
+  const pacienteId = user.pacienteId
   if (!pacienteId) {
     return reply.code(409).send({ error: 'paciente_record_not_found_for_usuario' })
   }
@@ -115,7 +119,7 @@ export async function listarFila(req: FastifyRequest, reply: FastifyReply) {
     return reply.code(403).send({ error: 'forbidden_only_medico_can_list_queue' })
   }
 
-  const { medicoId } = await resolveUserProfiles(user.id)
+  const medicoId = user.medicoId
   if (!medicoId) {
     return reply.code(409).send({ error: 'medico_record_not_found_for_usuario' })
   }
@@ -168,7 +172,7 @@ export async function claimConsulta(req: RequestWithConsultaId, reply: FastifyRe
   let result: any
 
   if (user.tipo_usuario === 'medico') {
-    const { medicoId } = await resolveUserProfiles(user.id)
+    const medicoId = user.medicoId
     if (!medicoId) {
       return reply.code(409).send({ error: 'medico_record_not_found_for_usuario' })
     }
@@ -178,7 +182,7 @@ export async function claimConsulta(req: RequestWithConsultaId, reply: FastifyRe
     }
     result = await claimConsultaByMedico(consultaId, medicoId)
   } else if (user.tipo_usuario === 'paciente') {
-    const { pacienteId } = await resolveUserProfiles(user.id)
+    const pacienteId = user.pacienteId
     if (!pacienteId) {
       return reply.code(409).send({ error: 'paciente_record_not_found_for_usuario' })
     }
@@ -202,7 +206,7 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
   logger.info('getHistoricoCompleto chamado', { userId: user.id, tipoUsuario: user.tipo_usuario, query: req.query })
 
   // Resolve os perfis vinculados ao usuário logado
-  const { pacienteId: profilePacienteId, medicoId: profileMedicoId } = await resolveUserProfiles(user.id)
+  const { pacienteId: profilePacienteId, medicoId: profileMedicoId } = user
   const { pacienteId: queryPacienteId } = req.query as { pacienteId?: string }
 
   let where: any = {
@@ -213,11 +217,11 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
   if (queryPacienteId) {
     const validation = validateNumericId(queryPacienteId, 'pacienteId')
     if (!validation.valid) return reply.code(400).send(validation.error!)
-    const targetPacienteId = validation.numericId
+    const targetPacienteId = validation.numericId!
 
     // Verificação de permissão: Médicos/Admins podem ver qualquer histórico de paciente.
     // O próprio paciente também pode ver seu histórico.
-    const canAccessAll = user.tipo_usuario === 'medico' || user.tipo_usuario === 'admin' || profileMedicoId !== null
+    const canAccessAll = user.tipo_usuario === 'medico' || user.tipo_usuario === 'admin'
     const isSelf = profilePacienteId === targetPacienteId
 
     if (canAccessAll || isSelf) {
