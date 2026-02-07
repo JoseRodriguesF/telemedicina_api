@@ -87,7 +87,7 @@ export class PerfilService {
 
                     const addrData = {
                         endereco: sanitizeText(data.endereco.endereco),
-                        numero: Number(data.endereco.numero),
+                        numero: String(data.endereco.numero),
                         complemento: data.endereco.complemento ? sanitizeText(data.endereco.complemento) : null
                     }
 

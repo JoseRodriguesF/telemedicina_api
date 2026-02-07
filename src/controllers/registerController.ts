@@ -26,7 +26,7 @@ const registerPersonalSchema = z.object({
   telefone_responsavel: z.string().nullish(),
   endereco: z.object({
     endereco: z.string().min(1, 'Endereço é obrigatório'),
-    numero: z.number().int().nonnegative('Número inválido'),
+    numero: z.union([z.number(), z.string()]).transform(val => String(val)),
     complemento: z.string().nullish()
   })
 })

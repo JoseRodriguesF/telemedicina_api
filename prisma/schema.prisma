@@ -60,12 +60,15 @@ model Medico {
 }
 
 model Endereco {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   usuario_id  Int
-  endereco    String
-  numero      Int
-  complemento String?
-
+  endereco    String  @db.VarChar(255)
+  numero      String? @db.VarChar(20)
+  complemento String? @db.VarChar(255)
+  bairro      String? @db.VarChar(100)
+  cep         String? @db.VarChar(10)
+  cidade      String? @db.VarChar(100)
+  estado      String? @db.VarChar(2)
   usuario     Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
   @@map("enderecos")
@@ -93,6 +96,7 @@ enum ConsultaStatus {
   in_progress
   finished
   solicitada
+  cancelled
 
   @@map("consulta_status_enum")
 }
@@ -103,8 +107,8 @@ model Consulta {
   pacienteId  Int             @map("paciente_id")
   status      ConsultaStatus
   data_consulta DateTime?     @map("data_consulta") @db.Date
-  hora_inicio  DateTime?      @map("hora_inicio") @db.Time
-  hora_fim     DateTime?      @map("hora_fim") @db.Time
+  hora_inicio  DateTime?      @map("hora_inicio") @db.Time(6)
+  hora_fim     DateTime?      @map("hora_fim") @db.Time(6)
   createdAt     DateTime        @default(now()) @map("created_at")
   updatedAt     DateTime        @updatedAt @map("updated_at")
   resumo        String?         @db.Text
@@ -149,4 +153,3 @@ model HistoriaClinica {
   @@index([status], name: "idx_historiaclinica_status")
   @@map("historiaClinica")
 }
-

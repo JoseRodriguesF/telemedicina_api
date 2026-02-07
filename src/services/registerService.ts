@@ -39,7 +39,7 @@ export class RegisterService {
     telefone: string
     responsavel_legal?: string | null
     telefone_responsavel?: string | null
-    endereco?: { endereco: string; numero: number; complemento?: string | null }
+    endereco?: { endereco: string; numero: string; complemento?: string | null }
   }) {
     // Verificar se usuario existe e é paciente
     const user = await prisma.usuario.findUnique({ where: { id: data.usuario_id } })
@@ -107,7 +107,7 @@ export class RegisterService {
     }
   }
 
-  async createEndereco(data: { usuario_id: number; endereco: string; numero: number; complemento?: string | null }) {
+  async createEndereco(data: { usuario_id: number; endereco: string; numero: string; complemento?: string | null }) {
     const endereco = sanitizeText(data.endereco)
     const complemento = data.complemento ? sanitizeText(data.complemento) : null
 
