@@ -262,3 +262,109 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
     return reply.code(500).send({ error: 'internal_server_error', message: 'Erro ao buscar histórico de consultas' })
   }
 }
+
+/**
+ * Busca consultas no histórico por nome (médico ou paciente)
+ * GET /ps/historico-completo/search?q=<termo>
+ */
+export async function searchHistoricoCompleto(req: FastifyRequest, reply: FastifyReply) {
+  const user = req.user as AuthenticatedUser
+  if (!user) return reply.code(401).send({ error: 'unauthorized' })
+
+  const { q } = req.query as { q?: string }
+
+  logger.info('searchHistoricoCompleto chamado', {
+    userId: user.id,
+    tipoUsuario: user.tipo_usuario,
+    searchTerm: q
+  })
+
+  // Validação do parâmetro de busca
+  if (!q || typeof q !== 'string' || q.trim() === '') {
+    logger.warn('Parâmetro de busca inválido ou vazio', { userId: user.id })
+    return reply.code(400).send({
+      error: 'bad_request',
+      message: 'Parâmetro de busca "q" é obrigatório'
+    })
+  }
+
+  const searchTerm = q.trim()
+  const { pacienteId: profilePacienteId, medicoId: profileMedicoId } = user
+
+  // Verificar se o usuário tem perfil
+  if (!profilePacienteId && !profileMedicoId) {
+    logger.debug('Usuário sem perfil de paciente ou médico', { userId: user.id })
+    return reply.send([])
+  }
+
+  // Construir query baseada no tipo de usuário
+  let where: any = {
+    status: 'finished'
+  }
+
+  if (user.tipo_usuario === 'paciente' && profilePacienteId) {
+    // Paciente busca por nome do médico
+    where.pacienteId = profilePacienteId
+    where.medico = {
+      nome_completo: {
+        contains: searchTerm,
+        mode: 'insensitive'
+      }
+    }
+    logger.debug('Busca de paciente por médico', {
+      pacienteId: profilePacienteId,
+      searchTerm
+    })
+  } else if (user.tipo_usuario === 'medico' && profileMedicoId) {
+    // Médico busca por nome do paciente
+    where.medicoId = profileMedicoId
+    where.paciente = {
+      nome_completo: {
+        contains: searchTerm,
+        mode: 'insensitive'
+      }
+    }
+    logger.debug('Busca de médico por paciente', {
+      medicoId: profileMedicoId,
+      searchTerm
+    })
+  } else {
+    // Tipo de usuário inválido ou sem permissão
+    logger.warn('Tipo de usuário inválido para busca', {
+      userId: user.id,
+      tipoUsuario: user.tipo_usuario
+    })
+    return reply.code(403).send({
+      error: 'forbidden',
+      message: 'Tipo de usuário inválido para realizar buscas'
+    })
+  }
+
+  try {
+    const consultas = await prisma.consulta.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        medico: { select: { nome_completo: true } },
+        paciente: { select: { nome_completo: true } }
+      }
+    })
+
+    logger.info('Busca de histórico concluída', {
+      count: consultas.length,
+      searchTerm,
+      userId: user.id
+    })
+
+    return reply.send(consultas)
+  } catch (error) {
+    logger.error('Erro ao buscar consultas', error as Error, {
+      userId: user.id,
+      searchTerm
+    })
+    return reply.code(500).send({
+      error: 'internal_server_error',
+      message: 'Erro ao buscar consultas'
+    })
+  }
+}
