@@ -368,3 +368,158 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
     })
   }
 }
+
+/**
+ * Cancela automaticamente consultas expiradas
+ * POST /ps/auto-cancel
+ * Endpoint para executar manualmente ou via Cron
+ */
+export async function autoCancelExpiredConsultas(req: FastifyRequest, reply: FastifyReply) {
+  const user = req.user as AuthenticatedUser
+
+  // Apenas admin pode executar este endpoint
+  if (user && user.tipo_usuario !== 'admin') {
+    logger.warn('Tentativa não autorizada de executar auto-cancelamento', { userId: user.id })
+    return reply.code(403).send({ error: 'forbidden', message: 'Apenas administradores podem executar esta ação' })
+  }
+
+  const startTime = Date.now()
+  const now = new Date()
+
+  logger.info('🔄 Iniciando cancelamento automático de consultas...')
+
+  try {
+    // Configurações (podem ser sobrescritas por variáveis de ambiente)
+    const HOURS_BEFORE_CANCEL = parseInt(process.env.HOURS_BEFORE_AUTO_CANCEL_AGENDADA || '2')
+
+    // ========================================
+    // 1. CANCELAR CONSULTAS AGENDADAS EXPIRADAS
+    // ========================================
+
+    const hoursAgo = new Date(now.getTime() - HOURS_BEFORE_CANCEL * 60 * 60 * 1000)
+
+    logger.info(`Buscando consultas agendadas expiradas (anteriores a ${hoursAgo.toISOString()})...`)
+
+    const expiredAgendadas = await prisma.consulta.findMany({
+      where: {
+        status: 'agendada',
+        hora_inicio: {
+          lt: hoursAgo
+        }
+      },
+      include: {
+        medico: { select: { id: true, nome_completo: true } },
+        paciente: { select: { id: true, nome_completo: true } }
+      }
+    })
+
+    logger.info(`✓ Encontradas ${expiredAgendadas.length} consultas agendadas expiradas`)
+
+    let agendadasCancelledCount = 0
+
+    for (const consulta of expiredAgendadas) {
+      try {
+        await prisma.consulta.update({
+          where: { id: consulta.id },
+          data: {
+            status: 'cancelled',
+            updatedAt: now
+          }
+        })
+
+        agendadasCancelledCount++
+
+        logger.info(`✓ Consulta #${consulta.id} cancelada (agendada expirada)`, {
+          consulta_id: consulta.id,
+          medico: consulta.medico?.nome_completo || 'Não atribuído',
+          paciente: consulta.paciente?.nome_completo,
+          hora_inicio: consulta.hora_inicio,
+          motivo: `Passou mais de ${HOURS_BEFORE_CANCEL} horas do horário agendado`
+        })
+      } catch (error) {
+        logger.error(`Erro ao cancelar consulta #${consulta.id}`, error as Error)
+      }
+    }
+
+    // ========================================
+    // 2. CANCELAR CONSULTAS SOLICITADAS NÃO ACEITAS
+    // ========================================
+
+    const today = now.toISOString().split('T')[0] // YYYY-MM-DD
+
+    logger.info(`Buscando consultas solicitadas não aceitas (data anterior a ${today})...`)
+
+    const expiredSolicitadas = await prisma.consulta.findMany({
+      where: {
+        status: 'solicitada',
+        data_consulta: {
+          lt: today
+        }
+      },
+      include: {
+        medico: { select: { id: true, nome_completo: true } },
+        paciente: { select: { id: true, nome_completo: true } }
+      }
+    })
+
+    logger.info(`✓ Encontradas ${expiredSolicitadas.length} consultas solicitadas não aceitas`)
+
+    let solicitadasCancelledCount = 0
+
+    for (const consulta of expiredSolicitadas) {
+      try {
+        await prisma.consulta.update({
+          where: { id: consulta.id },
+          data: {
+            status: 'cancelled',
+            updatedAt: now
+          }
+        })
+
+        solicitadasCancelledCount++
+
+        logger.info(`✓ Consulta #${consulta.id} cancelada (solicitada não aceita)`, {
+          consulta_id: consulta.id,
+          medico: consulta.medico?.nome_completo || 'Não atribuído',
+          paciente: consulta.paciente?.nome_completo,
+          data_consulta: consulta.data_consulta,
+          motivo: 'Não foi aceita até o dia do agendamento'
+        })
+      } catch (error) {
+        logger.error(`Erro ao cancelar consulta #${consulta.id}`, error as Error)
+      }
+    }
+
+    // ========================================
+    // 3. RESUMO
+    // ========================================
+
+    const totalCancelled = agendadasCancelledCount + solicitadasCancelledCount
+    const duration = ((Date.now() - startTime) / 1000).toFixed(2)
+
+    logger.info('✅ Cancelamento automático concluído', {
+      totalCancelled,
+      agendadasCancelled: agendadasCancelledCount,
+      solicitadasCancelled: solicitadasCancelledCount,
+      duration: `${duration}s`
+    })
+
+    return reply.send({
+      success: true,
+      message: 'Cancelamento automático executado com sucesso',
+      totalCancelled,
+      agendadasCancelled: agendadasCancelledCount,
+      solicitadasCancelled: solicitadasCancelledCount,
+      duration: parseFloat(duration),
+      timestamp: now.toISOString()
+    })
+
+  } catch (error) {
+    logger.error('❌ Erro no cancelamento automático', error as Error)
+    return reply.code(500).send({
+      error: 'internal_server_error',
+      message: 'Erro ao executar cancelamento automático',
+      details: error instanceof Error ? error.message : 'Erro desconhecido'
+    })
+  }
+}

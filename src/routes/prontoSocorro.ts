@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { authenticateJWT } from '../middlewares/auth'
-import { claimConsulta, criarSalaConsulta, listarFila, listarSalasEmAndamento, getHistoricoCompleto, searchHistoricoCompleto } from '../controllers/prontoSocorroController'
+import { claimConsulta, criarSalaConsulta, listarFila, listarSalasEmAndamento, getHistoricoCompleto, searchHistoricoCompleto, autoCancelExpiredConsultas } from '../controllers/prontoSocorroController'
 
 export default async function prontoSocorroRoutes(fastify: FastifyInstance) {
   fastify.route({ method: 'POST', url: '/ps/rooms', preHandler: authenticateJWT, handler: criarSalaConsulta })
@@ -9,4 +9,5 @@ export default async function prontoSocorroRoutes(fastify: FastifyInstance) {
   fastify.route({ method: 'GET', url: '/ps/salas-em-andamento', preHandler: authenticateJWT, handler: listarSalasEmAndamento })
   fastify.route({ method: 'GET', url: '/ps/historico-completo/search', preHandler: authenticateJWT, handler: searchHistoricoCompleto })
   fastify.route({ method: 'GET', url: '/ps/historico-completo', preHandler: authenticateJWT, handler: getHistoricoCompleto })
+  fastify.route({ method: 'POST', url: '/ps/auto-cancel', preHandler: authenticateJWT, handler: autoCancelExpiredConsultas })
 }
