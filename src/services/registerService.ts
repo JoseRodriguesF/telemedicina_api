@@ -116,7 +116,7 @@ export class RegisterService {
         data: {
           usuario_id: data.usuario_id,
           endereco,
-          numero: data.numero,
+          numero: String(data.numero) as any,
           complemento
         }
       })

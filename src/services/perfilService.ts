@@ -85,7 +85,7 @@ export class PerfilService {
                         where: { usuario_id: usuarioId }
                     })
 
-                    const addrData = {
+                    const addrData: any = {
                         endereco: sanitizeText(data.endereco.endereco),
                         numero: String(data.endereco.numero),
                         complemento: data.endereco.complemento ? sanitizeText(data.endereco.complemento) : null
