@@ -121,6 +121,7 @@ model Consulta {
   medico      Medico?         @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
   paciente    Paciente        @relation(name: "ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
   historiaClinica HistoriaClinica[]
+  prescricoes Prescricao[]
 
   avaliacao   String?         @db.Text
   estrelas    Int?
@@ -152,4 +153,21 @@ model HistoriaClinica {
   @@index([consultaId], name: "idx_historiaclinica_consulta_id")
   @@index([status], name: "idx_historiaclinica_status")
   @@map("historiaClinica")
+}
+
+model Prescricao {
+  id                Int      @id @default(autoincrement())
+  consultaId        Int      @map("consulta_id")
+  medicamento       String   @db.VarChar(255)
+  marca             String?  @db.VarChar(255)
+  dosagem           String   @db.Text
+  frequencia        String   @db.Text
+  duracao           String   @db.Text
+  inclusoConvenio   Boolean  @default(false) @map("incluso_convenio")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  consulta          Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+  @@index([consultaId], name: "idx_prescricoes_consulta_id")
+  @@map("prescricoes")
 }

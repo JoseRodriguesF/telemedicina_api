@@ -7,6 +7,7 @@ import prontoSocorroRoutes from './prontoSocorro'
 import { openaiRoutes } from './openai'
 import { historiaClinicaRoutes } from './historiaClinica'
 import { perfilRoutes } from './perfil'
+import prescricoesRoutes from './prescricoes'
 
 /**
  * Centralized route registration
@@ -20,4 +21,5 @@ export async function appRoutes(fastify: FastifyInstance) {
     await fastify.register(openaiRoutes)
     await fastify.register(historiaClinicaRoutes)
     await fastify.register(perfilRoutes)
+    await fastify.register(prescricoesRoutes)
 }
