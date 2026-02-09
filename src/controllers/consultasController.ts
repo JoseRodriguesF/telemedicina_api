@@ -335,3 +335,29 @@ export async function avaliarConsulta(req: RequestWithNumericId, reply: FastifyR
     return reply.code(code).send({ error: err.message })
   }
 }
+
+export async function updatePacienteNotas(req: RequestWithNumericId, reply: FastifyReply) {
+  const validation = validateNumericId(req.params.id, 'consulta_id')
+  if (!validation.valid) return reply.code(400).send(validation.error!)
+
+  const id = validation.numericId!
+  const consulta = await prisma.consulta.findUnique({
+    where: { id },
+    include: { paciente: true }
+  })
+  if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+
+  const user = req.user as AuthenticatedUser
+  if (user.tipo_usuario !== 'medico' || user.medicoId !== consulta.medicoId) {
+    return reply.code(403).send({ error: 'forbidden', message: 'Apenas o médico responsável pode editar as notas do paciente' })
+  }
+
+  const { notas } = (req.body as any) || {}
+
+  await prisma.usuario.update({
+    where: { id: consulta.paciente.usuario_id },
+    data: { notas }
+  })
+
+  return reply.send({ ok: true })
+}

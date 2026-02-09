@@ -8,7 +8,15 @@ export async function getConsultaById(id: number) {
 export async function getConsultaWithPatient(id: number) {
   return prisma.consulta.findUnique({
     where: { id },
-    include: { paciente: true }
+    include: {
+      paciente: {
+        include: {
+          usuario: {
+            select: { notas: true }
+          }
+        }
+      }
+    }
   })
 }
 

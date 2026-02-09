@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { createOrGetRoom, endConsulta, listParticipants, joinRoom, createRoomSimple, listConsultasAgendadas, listMedicos, agendarConsulta, confirmarConsulta, cancelarConsulta, getConsultaDetails, avaliarConsulta } from '../controllers/consultasController'
+import { createOrGetRoom, endConsulta, listParticipants, joinRoom, createRoomSimple, listConsultasAgendadas, listMedicos, agendarConsulta, confirmarConsulta, cancelarConsulta, getConsultaDetails, avaliarConsulta, updatePacienteNotas } from '../controllers/consultasController'
 import { authenticateJWT } from '../middlewares/auth'
 
 export default async function consultasRoutes(fastify: FastifyInstance) {
@@ -18,4 +18,5 @@ export default async function consultasRoutes(fastify: FastifyInstance) {
   fastify.get('/consultas/:id/participants', { preHandler: authenticateJWT }, listParticipants as any)
   fastify.post('/consultas/:id/end', { preHandler: authenticateJWT }, endConsulta as any)
   fastify.post('/consultas/:id/avaliacao', { preHandler: authenticateJWT }, avaliarConsulta as any)
+  fastify.patch('/consultas/:id/paciente/notas', { preHandler: authenticateJWT }, updatePacienteNotas as any)
 }
