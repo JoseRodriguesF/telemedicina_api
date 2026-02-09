@@ -17,6 +17,7 @@ model Usuario {
   medico       Medico?
   paciente     Paciente?
   enderecos    Endereco[]
+  notas        String?     @db.Text
 
   @@map("usuarios")
 }
