@@ -71,6 +71,12 @@ export class PerfilService {
                     if (data.data_nascimento) updateData.data_nascimento = new Date(data.data_nascimento)
                     if (data.crm) updateData.crm = data.crm
 
+                    // Document Update URLs
+                    if (data.diploma_url) updateData.diploma_url = data.diploma_url
+                    if (data.especializacao_url) updateData.especializacao_url = data.especializacao_url
+                    if (data.assinatura_digital_url) updateData.assinatura_digital_url = data.assinatura_digital_url
+                    if (data.seguro_responsabilidade_url) updateData.seguro_responsabilidade_url = data.seguro_responsabilidade_url
+
                     if (Object.keys(updateData).length > 0) {
                         await tx.medico.update({
                             where: { id: usuario.medico.id },
