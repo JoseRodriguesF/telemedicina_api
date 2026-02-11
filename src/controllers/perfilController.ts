@@ -19,33 +19,47 @@ export class PerfilController {
                 return reply.code(404).send({ error: { code: 'USER_NOT_FOUND', message: 'Perfil não encontrado' } })
             }
 
-            const result = profile as any
+            // 1. Criar uma cópia profunda segura para manipulação
+            // Importante destruir buffers ANTES para não pesar no stringify
+            const rawMedico = profile.medico as any
+            const mData = rawMedico ? {
+                tem_diploma: !!rawMedico.diploma_data,
+                tem_especializacao: !!rawMedico.especializacao_data,
+                tem_assinatura: !!rawMedico.assinatura_digital_data,
+                tem_seguro: !!rawMedico.seguro_responsabilidade_data
+            } : null
 
-            // Pre-processar médico para remover binários e criar flags
-            if (result.medico) {
-                result.medico.tem_diploma = !!result.medico.diploma_data
-                result.medico.tem_especializacao = !!result.medico.especializacao_data
-                result.medico.tem_assinatura = !!result.medico.assinatura_digital_data
-                result.medico.tem_seguro = !!result.medico.seguro_responsabilidade_data
+            // 2. Clone simples para limpar o objeto do Prisma
+            const result = JSON.parse(JSON.stringify(profile))
 
-                // Remover buffers pesados para não quebrar o JSON.stringify ou pesar no transporte
+            // 3. Mapeamento para snake_case e nomes consistentes com o Login
+            result.registro_full = result.registroFull
+            delete result.registroFull
+
+            // Sanitizar sensíveis
+            delete result.senha_hash
+            delete result.google_id
+            delete result.senha
+
+            // 4. Injetar flags e dados de raiz para consistência com objeto de login
+            if (result.medico && mData) {
+                // Mesclar flags de existência
+                Object.assign(result.medico, mData)
+
+                // Garantir remoção de binários caso o stringify os tenha incluído como meta-objetos
                 delete result.medico.diploma_data
                 delete result.medico.especializacao_data
                 delete result.medico.assinatura_digital_data
                 delete result.medico.seguro_responsabilidade_data
 
-                // NÃO deletamos as URLs antigas aqui para manter compatibilidade com quem não migrou do Cloudinary
+                // Campos de raiz (compatível com auth.ts e login)
+                result.nome = result.medico.nome_completo
+                result.verificacao = result.medico.verificacao
+            } else if (result.paciente) {
+                result.nome = result.paciente.nome_completo
             }
 
-            // Converter para objeto limpo para evitar circularidade do Prisma/instâncias complexas
-            const responseData = JSON.parse(JSON.stringify(result))
-
-            // Sanitizar sensíveis
-            delete responseData.senha_hash
-            delete responseData.senha
-            delete responseData.google_id
-
-            return reply.send(responseData)
+            return reply.send(result)
         } catch (error: any) {
             if (error instanceof ApiError) {
                 reply.code(error.statusCode).send({ error: { code: error.code, message: error.message } })

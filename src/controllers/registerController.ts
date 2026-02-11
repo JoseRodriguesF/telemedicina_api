@@ -98,6 +98,7 @@ export class RegisterController {
           email: usuario.email,
           tipo_usuario: usuario.tipo_usuario,
           nome: data.nome_completo,
+          registro_full: true,
           token
         }
       })
@@ -136,6 +137,8 @@ export class RegisterController {
           email: usuario.email,
           tipo_usuario: usuario.tipo_usuario,
           nome: data.nome_completo,
+          registro_full: true,
+          verificacao: 'analise',
           token
         }
       })
