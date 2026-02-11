@@ -19,39 +19,33 @@ export class PerfilController {
                 return reply.code(404).send({ error: { code: 'USER_NOT_FOUND', message: 'Perfil não encontrado' } })
             }
 
-            // Mapeamento manual para garantir estabilidade e remover sensitivos/buffers
-            const result: any = {
-                id: (profile as any).id,
-                email: (profile as any).email,
-                tipo_usuario: (profile as any).tipo_usuario,
-                registroFull: (profile as any).registroFull,
-                paciente: (profile as any).paciente ? { ...(profile as any).paciente } : null,
-                medico: (profile as any).medico ? { ...(profile as any).medico } : null,
-                enderecos: Array.isArray((profile as any).enderecos) ? [...(profile as any).enderecos] : []
-            }
+            const result = profile as any
 
-            // Se for médico, converter buffers em flags e remover binários da resposta JSON
+            // Pre-processar médico para remover binários e criar flags
             if (result.medico) {
-                const m = result.medico
-                m.tem_diploma = !!m.diploma_data
-                m.tem_especializacao = !!m.especializacao_data
-                m.tem_assinatura = !!m.assinatura_digital_data
-                m.tem_seguro = !!m.seguro_responsabilidade_data
+                result.medico.tem_diploma = !!result.medico.diploma_data
+                result.medico.tem_especializacao = !!result.medico.especializacao_data
+                result.medico.tem_assinatura = !!result.medico.assinatura_digital_data
+                result.medico.tem_seguro = !!result.medico.seguro_responsabilidade_data
 
-                // Remover buffers pesados do JSON de retorno
-                delete m.diploma_data
-                delete m.especializacao_data
-                delete m.assinatura_digital_data
-                delete m.seguro_responsabilidade_data
+                // Remover buffers pesados para não quebrar o JSON.stringify ou pesar no transporte
+                delete result.medico.diploma_data
+                delete result.medico.especializacao_data
+                delete result.medico.assinatura_digital_data
+                delete result.medico.seguro_responsabilidade_data
 
-                // Remover URLs antigas se existirem
-                delete m.diploma_url
-                delete m.especializacao_url
-                delete m.assinatura_digital_url
-                delete m.seguro_responsabilidade_url
+                // NÃO deletamos as URLs antigas aqui para manter compatibilidade com quem não migrou do Cloudinary
             }
 
-            return reply.send(result)
+            // Converter para objeto limpo para evitar circularidade do Prisma/instâncias complexas
+            const responseData = JSON.parse(JSON.stringify(result))
+
+            // Sanitizar sensíveis
+            delete responseData.senha_hash
+            delete responseData.senha
+            delete responseData.google_id
+
+            return reply.send(responseData)
         } catch (error: any) {
             if (error instanceof ApiError) {
                 reply.code(error.statusCode).send({ error: { code: error.code, message: error.message } })
