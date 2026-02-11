@@ -71,11 +71,23 @@ export class PerfilService {
                     if (data.data_nascimento) updateData.data_nascimento = new Date(data.data_nascimento)
                     if (data.crm) updateData.crm = data.crm
 
-                    // Document Update URLs
-                    if (data.diploma_url) updateData.diploma_url = data.diploma_url
-                    if (data.especializacao_url) updateData.especializacao_url = data.especializacao_url
-                    if (data.assinatura_digital_url) updateData.assinatura_digital_url = data.assinatura_digital_url
-                    if (data.seguro_responsabilidade_url) updateData.seguro_responsabilidade_url = data.seguro_responsabilidade_url
+                    // Documentos em Banco (Dados Binários)
+                    if (data.diploma && data.diploma.data) {
+                        updateData.diploma_data = Buffer.from(data.diploma.data, 'base64')
+                        updateData.diploma_mimetype = data.diploma.mimetype
+                    }
+                    if (data.especializacao && data.especializacao.data) {
+                        updateData.especializacao_data = Buffer.from(data.especializacao.data, 'base64')
+                        updateData.especializacao_mimetype = data.especializacao.mimetype
+                    }
+                    if (data.assinatura_digital && data.assinatura_digital.data) {
+                        updateData.assinatura_digital_data = Buffer.from(data.assinatura_digital.data, 'base64')
+                        updateData.assinatura_digital_mimetype = data.assinatura_digital.mimetype
+                    }
+                    if (data.seguro_responsabilidade && data.seguro_responsabilidade.data) {
+                        updateData.seguro_responsabilidade_data = Buffer.from(data.seguro_responsabilidade.data, 'base64')
+                        updateData.seguro_responsabilidade_mimetype = data.seguro_responsabilidade.mimetype
+                    }
 
                     if (Object.keys(updateData).length > 0) {
                         await tx.medico.update({
@@ -118,6 +130,29 @@ export class PerfilService {
             if (error instanceof ApiError) throw error
             logger.error('Failed to update profile', error, { usuarioId })
             throw new ApiError('Erro ao atualizar perfil.', 500, 'INTERNAL_ERROR')
+        }
+    }
+
+    async getDocument(usuarioId: number, type: string) {
+        const medico = await prisma.medico.findUnique({
+            where: { usuario_id: usuarioId }
+        })
+
+        if (!medico) {
+            throw new ApiError('Perfil médico não encontrado.', 404, 'USER_NOT_FOUND')
+        }
+
+        switch (type) {
+            case 'diploma':
+                return { data: medico.diploma_data, mimetype: medico.diploma_mimetype }
+            case 'especializacao':
+                return { data: medico.especializacao_data, mimetype: medico.especializacao_mimetype }
+            case 'assinatura':
+                return { data: medico.assinatura_digital_data, mimetype: medico.assinatura_digital_mimetype }
+            case 'seguro':
+                return { data: medico.seguro_responsabilidade_data, mimetype: medico.seguro_responsabilidade_mimetype }
+            default:
+                throw new ApiError('Tipo de documento inválido.', 400, 'INVALID_TYPE')
         }
     }
 }

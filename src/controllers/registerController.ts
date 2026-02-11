@@ -31,6 +31,11 @@ const registerPersonalSchema = z.object({
   })
 })
 
+const fileSchema = z.object({
+  data: z.string().min(1, 'Conteúdo do arquivo é obrigatório'),
+  mimetype: z.string().min(1, 'Mimetype é obrigatório')
+})
+
 const registerMedicoSchema = z.object({
   usuario_id: z.number().int().positive('ID do usuário deve ser um número positivo'),
   nome_completo: z.string().min(1, 'Nome completo é obrigatório'),
@@ -38,10 +43,10 @@ const registerMedicoSchema = z.object({
   cpf: z.string().regex(/^\d{11}$/, 'CPF deve ter 11 dígitos numéricos'),
   sexo: z.string().min(1, 'Sexo é obrigatório'),
   crm: z.string().min(1, 'CRM é obrigatório'),
-  diploma_url: z.string().url('URL do diploma inválida'),
-  especializacao_url: z.string().url('URL do diploma de especialista inválida').nullish(),
-  assinatura_digital_url: z.string().url('URL da assinatura digital inválida'),
-  seguro_responsabilidade_url: z.string().url('URL do seguro de responsabilidade inválida')
+  diploma: fileSchema,
+  especializacao: fileSchema.nullish(),
+  assinatura_digital: fileSchema,
+  seguro_responsabilidade: fileSchema
 })
 
 export class RegisterController {

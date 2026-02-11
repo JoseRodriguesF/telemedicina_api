@@ -136,10 +136,10 @@ export class RegisterService {
     cpf: string
     sexo: string
     crm: string
-    diploma_url: string
-    especializacao_url?: string | null
-    assinatura_digital_url: string
-    seguro_responsabilidade_url: string
+    diploma: { data: string; mimetype: string }
+    especializacao?: { data: string; mimetype: string } | null
+    assinatura_digital: { data: string; mimetype: string }
+    seguro_responsabilidade: { data: string; mimetype: string }
   }) {
     // Verificar se usuario existe e é medico
     const user = await prisma.usuario.findUnique({ where: { id: data.usuario_id } })
@@ -187,10 +187,18 @@ export class RegisterService {
           cpf: cleanCPF,
           sexo: data.sexo,
           crm: data.crm,
-          diploma_url: data.diploma_url,
-          especializacao_url: data.especializacao_url,
-          assinatura_digital_url: data.assinatura_digital_url,
-          seguro_responsabilidade_url: data.seguro_responsabilidade_url
+          // Documentos Binários
+          diploma_data: Buffer.from(data.diploma.data, 'base64'),
+          diploma_mimetype: data.diploma.mimetype,
+
+          especializacao_data: data.especializacao ? Buffer.from(data.especializacao.data, 'base64') : null,
+          especializacao_mimetype: data.especializacao ? data.especializacao.mimetype : null,
+
+          assinatura_digital_data: Buffer.from(data.assinatura_digital.data, 'base64'),
+          assinatura_digital_mimetype: data.assinatura_digital.mimetype,
+
+          seguro_responsabilidade_data: Buffer.from(data.seguro_responsabilidade.data, 'base64'),
+          seguro_responsabilidade_mimetype: data.seguro_responsabilidade.mimetype
         }
       })
 

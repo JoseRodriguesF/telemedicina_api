@@ -48,10 +48,26 @@ model Medico {
   cpf                         String   @unique @db.VarChar(14)
   sexo                        String?  @db.VarChar(20)
   crm                         String   @db.VarChar(50)
+  
+  // URLs (Cloudinary - deprecated)
   diploma_url                 String?  @db.VarChar(255)
   especializacao_url          String?  @db.VarChar(255)
   assinatura_digital_url      String?  @db.VarChar(255)
   seguro_responsabilidade_url String?  @db.VarChar(255)
+
+  // Documentos (Database Storage)
+  diploma_data                Bytes?
+  diploma_mimetype            String?  @db.VarChar(100)
+  
+  especializacao_data         Bytes?
+  especializacao_mimetype     String?  @db.VarChar(100)
+  
+  assinatura_digital_data     Bytes?
+  assinatura_digital_mimetype String?  @db.VarChar(100)
+  
+  seguro_responsabilidade_data     Bytes?
+  seguro_responsabilidade_mimetype String?  @db.VarChar(100)
+
   verificacao                 StatusVerificacao @default(analise)
   avaliacao                   Float?   @default(0)
   usuario                     Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
