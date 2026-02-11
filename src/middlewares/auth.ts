@@ -11,13 +11,19 @@ interface JWTPayload {
 }
 
 export const authenticateJWT = async (request: FastifyRequest, reply: FastifyReply) => {
+  let token: string | null = null
   const authHeader = request.headers.authorization
+  const queryToken = (request.query as any)?.token
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return reply.code(401).send({ error: 'unauthorized', message: 'Token de acesso necessário' })
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.substring(7)
+  } else if (queryToken) {
+    token = queryToken
   }
 
-  const token = authHeader.substring(7) // Remove 'Bearer '
+  if (!token) {
+    return reply.code(401).send({ error: 'unauthorized', message: 'Token de acesso necessário' })
+  }
 
   try {
     const decoded = verifyJWT(token) as JWTPayload
