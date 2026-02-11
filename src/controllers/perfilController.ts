@@ -19,20 +19,27 @@ export class PerfilController {
                 return reply.code(404).send({ error: { code: 'USER_NOT_FOUND', message: 'Perfil não encontrado' } })
             }
 
-            // 1. Criar uma cópia profunda segura para manipulação
-            // Importante destruir buffers ANTES para não pesar no stringify
-            const rawMedico = profile.medico as any
-            const mData = rawMedico ? {
-                tem_diploma: !!rawMedico.diploma_data,
-                tem_especializacao: !!rawMedico.especializacao_data,
-                tem_assinatura: !!rawMedico.assinatura_digital_data,
-                tem_seguro: !!rawMedico.seguro_responsabilidade_data
-            } : null
+            // 1. Antes de qualquer serialização, capturar flags e REMOVER buffers para não travar o processo
+            const medico = profile.medico as any
+            let mFlags: any = null
+            if (medico) {
+                mFlags = {
+                    tem_diploma: !!medico.diploma_data,
+                    tem_especializacao: !!medico.especializacao_data,
+                    tem_assinatura: !!medico.assinatura_digital_data,
+                    tem_seguro: !!medico.seguro_responsabilidade_data
+                }
+                // Remover binários do objeto ORIGINAL antes do stringify
+                delete medico.diploma_data
+                delete medico.especializacao_data
+                delete medico.assinatura_digital_data
+                delete medico.seguro_responsabilidade_data
+            }
 
-            // 2. Clone simples para limpar o objeto do Prisma
+            // 2. Agora sim, converter para JSON limpo com segurança
             const result = JSON.parse(JSON.stringify(profile))
 
-            // 3. Mapeamento para snake_case e nomes consistentes com o Login
+            // 3. Mapeamento para snake_case consistente com Login
             result.registro_full = result.registroFull
             delete result.registroFull
 
@@ -41,18 +48,9 @@ export class PerfilController {
             delete result.google_id
             delete result.senha
 
-            // 4. Injetar flags e dados de raiz para consistência com objeto de login
-            if (result.medico && mData) {
-                // Mesclar flags de existência
-                Object.assign(result.medico, mData)
-
-                // Garantir remoção de binários caso o stringify os tenha incluído como meta-objetos
-                delete result.medico.diploma_data
-                delete result.medico.especializacao_data
-                delete result.medico.assinatura_digital_data
-                delete result.medico.seguro_responsabilidade_data
-
-                // Campos de raiz (compatível com auth.ts e login)
+            // 4. Injetar flags e dados de raiz
+            if (result.medico && mFlags) {
+                Object.assign(result.medico, mFlags)
                 result.nome = result.medico.nome_completo
                 result.verificacao = result.medico.verificacao
             } else if (result.paciente) {
