@@ -209,9 +209,7 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
   const { pacienteId: profilePacienteId, medicoId: profileMedicoId } = user
   const { pacienteId: queryPacienteId } = req.query as { pacienteId?: string }
 
-  let where: any = {
-    status: 'finished'
-  }
+  let where: any = {}
 
   // Se foi fornecido um pacienteId na query, buscamos o histórico daquele paciente específico
   if (queryPacienteId) {
@@ -251,7 +249,8 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
       orderBy: { createdAt: 'desc' },
       include: {
         medico: { select: { nome_completo: true } },
-        paciente: { select: { nome_completo: true } }
+        paciente: { select: { nome_completo: true } },
+        prescricoes: true
       }
     })
 
@@ -298,9 +297,7 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
   }
 
   // Construir query baseada no tipo de usuário
-  let where: any = {
-    status: 'finished'
-  }
+  let where: any = {}
 
   if (user.tipo_usuario === 'paciente' && profilePacienteId) {
     // Paciente busca por nome do médico
@@ -346,7 +343,8 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
       orderBy: { createdAt: 'desc' },
       include: {
         medico: { select: { nome_completo: true } },
-        paciente: { select: { nome_completo: true } }
+        paciente: { select: { nome_completo: true } },
+        prescricoes: true
       }
     })
 

@@ -303,6 +303,7 @@ export async function getPrescricoesByPaciente(
                     select: {
                         data_consulta: true,
                         createdAt: true,
+                        status: true,
                         medico: {
                             select: {
                                 nome_completo: true
