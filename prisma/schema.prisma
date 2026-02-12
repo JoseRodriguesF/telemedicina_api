@@ -14,64 +14,56 @@ model Usuario {
   google_id    String?     @unique @map("google_id") @db.VarChar(255)
   registroFull Boolean     @default(false) @map("registro_full")
   tipo_usuario TipoUsuario
+  enderecos    Endereco[]
   medico       Medico?
   paciente     Paciente?
-  enderecos    Endereco[]
-  notas        String?     @db.Text
 
   @@map("usuarios")
 }
 
 model Paciente {
-  id                   Int      @id @default(autoincrement())
-  usuario_id           Int      @unique
-  nome_completo        String   @db.VarChar(255)
-  data_nascimento      DateTime @db.Date
-  cpf                  String   @unique @db.VarChar(14)
-  sexo                 String   @db.VarChar(20)
-  estado_civil         String   @db.VarChar(50)
-  telefone             String   @db.VarChar(11)
-  responsavel_legal    String?  @db.VarChar(255)
-  telefone_responsavel String?  @db.VarChar(20)
-  usuario              Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  consultas            Consulta[] @relation("ConsultaPaciente")
+  id                   Int               @id @default(autoincrement())
+  usuario_id           Int               @unique
+  nome_completo        String            @db.VarChar(255)
+  data_nascimento      DateTime          @db.Date
+  cpf                  String            @unique @db.VarChar(14)
+  sexo                 String            @db.VarChar(20)
+  estado_civil         String            @db.VarChar(50)
+  telefone             String            @db.VarChar(11)
+  responsavel_legal    String?           @db.VarChar(255)
+  telefone_responsavel String?           @db.VarChar(20)
+  notas                String?
+  consultas            Consulta[]        @relation("ConsultaPaciente")
   historiaClinica      HistoriaClinica[]
+  usuario              Usuario           @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("pacientes")
 }
 
 model Medico {
-  id                          Int      @id @default(autoincrement())
-  usuario_id                  Int      @unique
-  nome_completo               String   @db.VarChar(255)
-  data_nascimento             DateTime @db.Date
-  cpf                         String   @unique @db.VarChar(14)
-  sexo                        String?  @db.VarChar(20)
-  crm                         String   @db.VarChar(50)
-  
-  // URLs (Cloudinary - deprecated)
-  diploma_url                 String?  @db.VarChar(255)
-  especializacao_url          String?  @db.VarChar(255)
-  assinatura_digital_url      String?  @db.VarChar(255)
-  seguro_responsabilidade_url String?  @db.VarChar(255)
-
-  // Documentos (Database Storage)
-  diploma_data                Bytes?
-  diploma_mimetype            String?  @db.VarChar(100)
-  
-  especializacao_data         Bytes?
-  especializacao_mimetype     String?  @db.VarChar(100)
-  
-  assinatura_digital_data     Bytes?
-  assinatura_digital_mimetype String?  @db.VarChar(100)
-  
+  id                               Int               @id @default(autoincrement())
+  usuario_id                       Int               @unique
+  nome_completo                    String            @db.VarChar(255)
+  data_nascimento                  DateTime          @db.Date
+  cpf                              String            @unique @db.VarChar(14)
+  sexo                             String?           @db.VarChar(20)
+  crm                              String            @db.VarChar(50)
+  diploma_url                      String?           @db.VarChar(255)
+  especializacao_url               String?           @db.VarChar(255)
+  assinatura_digital_url           String?           @db.VarChar(255)
+  seguro_responsabilidade_url      String?           @db.VarChar(255)
+  verificacao                      StatusVerificacao @default(analise)
+  avaliacao                        Float?            @default(0)
+  assinatura_digital_data          Bytes?
+  assinatura_digital_mimetype      String?           @db.VarChar(100)
+  diploma_data                     Bytes?
+  diploma_mimetype                 String?           @db.VarChar(100)
+  especializacao_data              Bytes?
+  especializacao_mimetype          String?           @db.VarChar(100)
   seguro_responsabilidade_data     Bytes?
-  seguro_responsabilidade_mimetype String?  @db.VarChar(100)
-
-  verificacao                 StatusVerificacao @default(analise)
-  avaliacao                   Float?   @default(0)
-  usuario                     Usuario  @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  consultas                   Consulta[] @relation("ConsultaMedico")
+  seguro_responsabilidade_mimetype String?           @db.VarChar(100)
+  consultas                        Consulta[]        @relation("ConsultaMedico")
+  usuario                          Usuario           @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("medicos")
 }
@@ -89,6 +81,75 @@ model Endereco {
   usuario     Usuario @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
 
   @@map("enderecos")
+}
+
+model Consulta {
+  id                Int               @id @default(autoincrement())
+  medicoId          Int?              @map("medico_id")
+  pacienteId        Int               @map("paciente_id")
+  status            ConsultaStatus
+  data_consulta     DateTime?         @map("data_consulta") @db.Date
+  hora_inicio       DateTime?         @map("hora_inicio") @db.Time(6)
+  hora_fim          DateTime?         @map("hora_fim") @db.Time(6)
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+  resumo            String?
+  repouso           String?
+  destino_final     String?           @map("destino_final")
+  diagnostico       String?
+  evolucao          String?
+  plano_terapeutico String?           @map("plano_terapeutico")
+  avaliacao         String?
+  estrelas          Int?
+  medico            Medico?           @relation("ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
+  paciente          Paciente          @relation("ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
+  historiaClinica   HistoriaClinica[]
+  prescricoes       Prescricao[]
+
+  @@index([medicoId], map: "idx_consultas_medico_id")
+  @@index([pacienteId], map: "idx_consultas_paciente_id")
+  @@index([medicoId, pacienteId], map: "idx_consultas_medico_paciente")
+  @@map("consultas")
+}
+
+model HistoriaClinica {
+  id                     Int       @id @default(autoincrement())
+  pacienteId             Int       @map("paciente_id")
+  consultaId             Int?      @map("consulta_id")
+  queixaPrincipal        String    @map("queixa_principal")
+  descricaoSintomas      String?   @map("descricao_sintomas")
+  historicoPessoal       Json?     @default("{}") @map("historico_pessoal")
+  antecedentesFamiliares Json?     @default("{}") @map("antecedentes_familiares")
+  estiloVida             Json?     @default("{}") @map("estilo_vida")
+  historicoVacinacao     String?   @map("historico_vacinacao")
+  observacoesGerais      String?   @map("observacoes_gerais")
+  status                 String    @default("rascunho") @db.VarChar(20)
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+  consulta               Consulta? @relation(fields: [consultaId], references: [id])
+  paciente               Paciente  @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
+
+  @@index([pacienteId], map: "idx_historiaclinica_paciente_id")
+  @@index([consultaId], map: "idx_historiaclinica_consulta_id")
+  @@index([status], map: "idx_historiaclinica_status")
+  @@map("historiaClinica")
+}
+
+model Prescricao {
+  id              Int      @id @default(autoincrement())
+  consultaId      Int      @map("consulta_id")
+  medicamento     String   @db.VarChar(255)
+  marca           String?  @db.VarChar(255)
+  dosagem         String
+  frequencia      String
+  duracao         String
+  inclusoConvenio Boolean  @default(false) @map("incluso_convenio")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  consulta        Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+
+  @@index([consultaId], map: "idx_prescricoes_consulta_id")
+  @@map("prescricoes")
 }
 
 enum TipoUsuario {
@@ -116,75 +177,4 @@ enum ConsultaStatus {
   cancelled
 
   @@map("consulta_status_enum")
-}
-
-model Consulta {
-  id          Int             @id @default(autoincrement())
-  medicoId    Int?            @map("medico_id")
-  pacienteId  Int             @map("paciente_id")
-  status      ConsultaStatus
-  data_consulta DateTime?     @map("data_consulta") @db.Date
-  hora_inicio  DateTime?      @map("hora_inicio") @db.Time(6)
-  hora_fim     DateTime?      @map("hora_fim") @db.Time(6)
-  createdAt     DateTime        @default(now()) @map("created_at")
-  updatedAt     DateTime        @updatedAt @map("updated_at")
-  resumo        String?         @db.Text
-  repouso       String?         @db.Text
-  destino_final String?         @map("destino_final") @db.Text
-  diagnostico   String?         @db.Text
-  evolucao      String?         @db.Text
-  plano_terapeutico String?     @map("plano_terapeutico") @db.Text
-
-  medico      Medico?         @relation(name: "ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
-  paciente    Paciente        @relation(name: "ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
-  historiaClinica HistoriaClinica[]
-  prescricoes Prescricao[]
-
-  avaliacao   String?         @db.Text
-  estrelas    Int?
-
-  @@index([medicoId], name: "idx_consultas_medico_id")
-  @@index([pacienteId], name: "idx_consultas_paciente_id")
-  @@index([medicoId, pacienteId], name: "idx_consultas_medico_paciente")
-  @@map("consultas")
-}
-
-model HistoriaClinica {
-  id                      Int      @id @default(autoincrement())
-  pacienteId              Int      @map("paciente_id")
-  consultaId              Int?     @map("consulta_id")
-  queixaPrincipal         String   @map("queixa_principal") @db.Text
-  descricaoSintomas       String?  @map("descricao_sintomas") @db.Text
-  historicoPessoal        Json?    @default("{}") @map("historico_pessoal") @db.JsonB
-  antecedentesFamiliares  Json?    @default("{}") @map("antecedentes_familiares") @db.JsonB
-  estiloVida              Json?    @default("{}") @map("estilo_vida") @db.JsonB
-  historicoVacinacao      String?  @map("historico_vacinacao") @db.Text
-  observacoesGerais       String?  @map("observacoes_gerais") @db.Text
-  status                  String   @default("rascunho") @db.VarChar(20)
-  createdAt               DateTime @default(now()) @map("created_at")
-  updatedAt               DateTime @updatedAt @map("updated_at")
-
-  paciente         Paciente  @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
-  consulta         Consulta? @relation(fields: [consultaId], references: [id], onDelete: SetNull)
-  @@index([pacienteId], name: "idx_historiaclinica_paciente_id")
-  @@index([consultaId], name: "idx_historiaclinica_consulta_id")
-  @@index([status], name: "idx_historiaclinica_status")
-  @@map("historiaClinica")
-}
-
-model Prescricao {
-  id                Int      @id @default(autoincrement())
-  consultaId        Int      @map("consulta_id")
-  medicamento       String   @db.VarChar(255)
-  marca             String?  @db.VarChar(255)
-  dosagem           String   @db.Text
-  frequencia        String   @db.Text
-  duracao           String   @db.Text
-  inclusoConvenio   Boolean  @default(false) @map("incluso_convenio")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-
-  consulta          Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
-  @@index([consultaId], name: "idx_prescricoes_consulta_id")
-  @@map("prescricoes")
 }

@@ -10,9 +10,19 @@ export async function getConsultaWithPatient(id: number) {
     where: { id },
     include: {
       paciente: {
-        include: {
+        select: {
+          id: true,
+          nome_completo: true,
+          data_nascimento: true,
+          cpf: true,
+          sexo: true,
+          estado_civil: true,
+          telefone: true,
+          notas: true,
           usuario: {
-            select: { notas: true }
+            select: {
+              email: true,
+            }
           }
         }
       }

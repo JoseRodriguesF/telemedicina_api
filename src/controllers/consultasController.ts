@@ -354,8 +354,8 @@ export async function updatePacienteNotas(req: RequestWithNumericId, reply: Fast
 
   const { notas } = (req.body as any) || {}
 
-  await prisma.usuario.update({
-    where: { id: consulta.paciente.usuario_id },
+  await prisma.paciente.update({
+    where: { id: consulta.pacienteId },
     data: { notas }
   })
 
