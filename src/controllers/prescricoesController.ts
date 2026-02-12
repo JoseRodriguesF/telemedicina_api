@@ -271,3 +271,52 @@ export async function getSugestoesMarcas(
         return reply.code(500).send({ error: 'Erro ao buscar sugestões de marcas' });
     }
 }
+
+/**
+ * Listar todas as prescrições de um paciente (histórico)
+ */
+export async function getPrescricoesByPaciente(
+    req: FastifyRequest<{ Params: { pacienteId: string } }>,
+    reply: FastifyReply
+) {
+    try {
+        const user = req.user as AuthenticatedUser;
+        const { pacienteId } = req.params;
+
+        // Verifica se o usuário tem permissão (médico ou o próprio paciente)
+        const isAuthorized =
+            user.tipo_usuario === 'medico' ||
+            (user.tipo_usuario === 'paciente' && user.pacienteId === Number(pacienteId));
+
+        if (!isAuthorized) {
+            return reply.code(403).send({ error: 'Acesso negado' });
+        }
+
+        const prescricoes = await prisma.prescricao.findMany({
+            where: {
+                consulta: {
+                    pacienteId: Number(pacienteId)
+                }
+            },
+            include: {
+                consulta: {
+                    select: {
+                        data_consulta: true,
+                        createdAt: true,
+                        medico: {
+                            select: {
+                                nome_completo: true
+                            }
+                        }
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+
+        return reply.code(200).send(prescricoes);
+    } catch (error) {
+        console.error('Erro ao buscar histórico de prescrições:', error);
+        return reply.code(500).send({ error: 'Erro ao buscar histórico de prescrições' });
+    }
+}
