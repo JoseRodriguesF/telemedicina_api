@@ -70,6 +70,7 @@ export class PerfilService {
                     if (data.sexo) updateData.sexo = data.sexo
                     if (data.data_nascimento) updateData.data_nascimento = new Date(data.data_nascimento)
                     if (data.crm) updateData.crm = data.crm
+                    if (data.resumo_profissional) updateData.resumo_profissional = sanitizeText(data.resumo_profissional)
 
                     // Documentos em Banco (Dados Binários)
                     if (data.diploma && data.diploma.data) {
