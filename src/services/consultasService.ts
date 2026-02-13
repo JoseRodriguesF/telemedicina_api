@@ -25,7 +25,8 @@ export async function getConsultaWithPatient(id: number) {
             }
           }
         }
-      }
+      },
+      historiaClinica: true
     }
   })
 }

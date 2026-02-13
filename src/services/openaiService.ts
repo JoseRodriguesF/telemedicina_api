@@ -298,45 +298,48 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
   // 1. Busca pelo marcador explícito [TRIAGEM_CONCLUIDA]
   let completed = answer.includes('[TRIAGEM_CONCLUIDA]')
 
-  // 2. Fallback: Busca pela frase exata de conclusão caso a IA tenha esquecido o marcador
+  // 2. Fallback: Busca pela frase de conclusão padrão ou presença de JSON estruturado
   const fraseConclusao = "Sua triagem foi concluída com sucesso"
   if (!completed && answer.includes(fraseConclusao)) {
-    console.warn('[DEBUG] Fallback ativado: Frase de conclusão encontrada sem marcador [TRIAGEM_CONCLUIDA]')
     completed = true
   }
 
-  // 🔍 DEBUG: Log detalhado para investigar completed
-  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-  console.log('[DEBUG OPENAI SERVICE]')
-  console.log('Resposta completa da IA (primeiros 500 chars):', answer.substring(0, 500))
-  if (completed && !answer.includes('[DADOS_ESTRUTURADOS]')) {
-    // Se completou mas não tem dados estruturados, é um problema sério
-    console.error('[ERRO CRÍTICO] Triagem concluída (via marcador ou frase) mas SEM [DADOS_ESTRUTURADOS]!')
-  }
   let dadosEstruturados = null
-  if (answer.includes('[DADOS_ESTRUTURADOS]')) {
+
+  // Tentar encontrar um JSON no formato esperado
+  // Busca por algo que comece com { e termine com } no final da string
+  const jsonMatch = answer.match(/(\{[\s\S]*\})\s*$/);
+
+  if (jsonMatch) {
     try {
-      const dadosMatch = answer.match(/\[DADOS_ESTRUTURADOS\]\s*(\{[\s\S]*\})/)
-      if (dadosMatch && dadosMatch[1]) {
-        dadosEstruturados = JSON.parse(dadosMatch[1])
-        console.log('[DEBUG] Dados estruturados parseados com sucesso')
-      } else {
-        console.warn('[DEBUG] Marcador encontrado mas regex não capturou JSON')
+      const potencialJSon = jsonMatch[1];
+      // Verificar se contém campos chave para confirmar que é o nosso JSON de triagem
+      if (potencialJSon.includes('"queixa_principal"') || potencialJSon.includes('"conteudo"')) {
+        dadosEstruturados = JSON.parse(potencialJSon);
+        console.log('[DEBUG] Dados estruturados capturados com sucesso (com ou sem etiqueta)');
       }
     } catch (err) {
-      // Se falhar ao parsear, tenta extrair linha por linha
-      console.warn('Erro ao parsear dados estruturados:', err)
+      console.warn('[DEBUG] Texto similar a JSON encontrado, mas inválido:', err);
     }
   }
 
-  // Remover as marcações da resposta antes de retornar
-  const cleanAnswer = answer
-    .replace(/\[TRIAGEM_CONCLUIDA\]/g, '')
-    .replace(/\[DADOS_ESTRUTURADOS\]\s*\{[\s\S]*\}/g, '')
-    .trim()
+  // Se detectou JSON mas completed ainda é falso, forçar true (segurança)
+  if (dadosEstruturados && !completed) {
+    completed = true;
+  }
 
-  console.log('[DEBUG] cleanAnswer (primeiros 200 chars):', cleanAnswer.substring(0, 200))
-  console.log('[DEBUG] Retornando: { completed:', completed, ', dadosEstruturados:', dadosEstruturados ? 'SIM' : 'NÃO', '}')
+  // Limpeza radical da resposta para o usuário:
+  // Remove TUDO que houver de [TRIAGEM...], [DADOS...] e qualquer JSON no final
+  let cleanAnswer = answer
+    .replace(/\[TRIAGEM_CONCLUIDA\]/g, '')
+    .replace(/\[DADOS_ESTRUTURADOS\]/g, '')
+    .split(/\{[\s\S]*\}/)[0] // Corta a string assim que encontrar a abertura de um JSON
+    .trim();
+
+  // DEBUG FINAL
+  if (completed && !dadosEstruturados) {
+    console.error('[ERRO CRÍTICO] Triagem concluída mas o JSON não foi detectado/parseado corretamente.');
+  }
 
   return { answer: cleanAnswer, completed, dadosEstruturados }
 }

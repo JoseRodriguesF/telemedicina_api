@@ -250,7 +250,8 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
       include: {
         medico: { select: { nome_completo: true } },
         paciente: { select: { nome_completo: true } },
-        prescricoes: true
+        prescricoes: true,
+        historiaClinica: true
       }
     })
 
