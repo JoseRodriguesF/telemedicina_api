@@ -42,7 +42,7 @@ async function main() {
 
     // 2. Create multiple Consultas with different statuses
     const statuses = ['agendada', 'finished', 'solicitada', 'cancelled', 'in_progress'];
-    
+
     for (const status of statuses) {
         const consulta = await prisma.consulta.create({
             data: {
@@ -70,7 +70,8 @@ async function main() {
                     status: "finalizado",
                     historicoPessoal: { alergias: ["dipirona"], medicamentos: ["nenhum"] },
                     antecedentesFamiliares: { hipertensao: true },
-                    estiloVida: { fumante: false, exercicios: "3x semana" }
+                    estiloVida: { fumante: false, exercicios: "3x semana" },
+                    conteudo: "Paciente relata dor de cabeça persistente iniciada há 3 dias na região frontal. Sem outros sintomas significativos."
                 }
             });
 

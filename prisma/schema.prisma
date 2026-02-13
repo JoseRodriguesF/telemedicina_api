@@ -33,6 +33,7 @@ model Paciente {
   responsavel_legal    String?           @db.VarChar(255)
   telefone_responsavel String?           @db.VarChar(20)
   notas                String?
+  historiaClinicaResumo String?          @map("historia_clinica") @db.Text
   consultas            Consulta[]        @relation("ConsultaPaciente")
   historiaClinica      HistoriaClinica[]
   usuario              Usuario           @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -117,13 +118,12 @@ model HistoriaClinica {
   id                     Int       @id @default(autoincrement())
   pacienteId             Int       @map("paciente_id")
   consultaId             Int?      @map("consulta_id")
-  queixaPrincipal        String    @map("queixa_principal")
-  descricaoSintomas      String?   @map("descricao_sintomas")
-  historicoPessoal       Json?     @default("{}") @map("historico_pessoal")
-  antecedentesFamiliares Json?     @default("{}") @map("antecedentes_familiares")
-  estiloVida             Json?     @default("{}") @map("estilo_vida")
-  historicoVacinacao     String?   @map("historico_vacinacao")
-  observacoesGerais      String?   @map("observacoes_gerais")
+  queixaPrincipal        String?   @map("queixa_principal") @db.Text
+  descricaoSintomas      String?   @map("descricao_sintomas") @db.Text
+  historicoPessoal       Json?     @map("historico_pessoal")
+  antecedentesFamiliares Json?     @map("antecedentes_familiares")
+  estiloVida             Json?     @map("estilo_vida")
+  conteudo               String    @db.Text
   status                 String    @default("rascunho") @db.VarChar(20)
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")

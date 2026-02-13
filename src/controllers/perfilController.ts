@@ -55,6 +55,10 @@ export class PerfilController {
                 result.verificacao = result.medico.verificacao
             } else if (result.paciente) {
                 result.nome = result.paciente.nome_completo
+                if (result.paciente.historiaClinicaResumo) {
+                    result.paciente.historia_clinica = result.paciente.historiaClinicaResumo
+                    delete result.paciente.historiaClinicaResumo
+                }
             }
 
             return reply.send(result)

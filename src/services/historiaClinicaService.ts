@@ -3,12 +3,12 @@ import ApiError from '../utils/apiError'
 import logger from '../utils/logger'
 
 export interface DadosHistoriaClinica {
-    queixa_principal: string
+    queixa_principal?: string
     descricao_sintomas?: string
     historico_pessoal?: any
     antecedentes_familiares?: any
     estilo_vida?: any
-    historico_vacinacao?: string
+    conteudo: string
 }
 
 export class HistoriaClinicaService {
@@ -17,7 +17,6 @@ export class HistoriaClinicaService {
      */
     async criarHistoriaClinica(
         pacienteId: number,
-        usuarioId: number,
         dados: DadosHistoriaClinica
     ) {
         try {
@@ -34,17 +33,25 @@ export class HistoriaClinicaService {
             const historiaClinica = await prisma.historiaClinica.create({
                 data: {
                     pacienteId,
-                    queixaPrincipal: dados.queixa_principal,
-                    descricaoSintomas: dados.descricao_sintomas || null,
-                    historicoPessoal: dados.historico_pessoal || {},
-                    antecedentesFamiliares: dados.antecedentes_familiares || {},
-                    estiloVida: dados.estilo_vida || {},
-                    historicoVacinacao: dados.historico_vacinacao || null,
+                    queixaPrincipal: dados.queixa_principal ?? "",
+                    descricaoSintomas: dados.descricao_sintomas ?? "",
+                    historicoPessoal: dados.historico_pessoal ?? {},
+                    antecedentesFamiliares: dados.antecedentes_familiares ?? {},
+                    estiloVida: dados.estilo_vida ?? {},
+                    conteudo: dados.conteudo,
                     status: 'completo'
                 }
             })
 
-            logger.info(`História clínica criada com sucesso`, {
+            // Atualizar também o perfil do paciente com a história clínica estruturada
+            await prisma.paciente.update({
+                where: { id: pacienteId },
+                data: {
+                    historiaClinicaResumo: dados.conteudo
+                }
+            })
+
+            logger.info(`História clínica criada e perfil atualizado com sucesso`, {
                 historiaClinicaId: historiaClinica.id,
                 pacienteId
             })

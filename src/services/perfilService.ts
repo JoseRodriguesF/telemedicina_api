@@ -57,6 +57,7 @@ export class PerfilService {
                     if (data.sexo) updateData.sexo = data.sexo
                     if (data.estado_civil) updateData.estado_civil = data.estado_civil
                     if (data.data_nascimento) updateData.data_nascimento = new Date(data.data_nascimento)
+                    if (data.historia_clinica) updateData.historiaClinicaResumo = sanitizeText(data.historia_clinica)
 
                     if (Object.keys(updateData).length > 0) {
                         await tx.paciente.update({

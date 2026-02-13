@@ -51,14 +51,8 @@ export const joinRoomSchema = z.object({
 
 export const createHistoriaClinicaSchema = z.object({
     pacienteId: z.number().int().positive(),
-    queixaPrincipal: z.string().min(1, 'Queixa principal é obrigatória'),
-    descricaoSintomas: z.string().optional(),
-    historicoPessoal: z.record(z.string(), z.unknown()).optional(),
-    antecedentesFamiliares: z.record(z.string(), z.unknown()).optional(),
-    estiloVida: z.record(z.string(), z.unknown()).optional(),
-    historicoVacinacao: z.string().optional(),
-    observacoesGerais: z.string().optional(),
-    status: z.enum(['rascunho', 'finalizado']).default('rascunho')
+    conteudo: z.string().min(1, 'O conteúdo da história clínica é obrigatório'),
+    status: z.enum(['rascunho', 'finalizado', 'completo']).default('rascunho')
 })
 
 export const updateHistoriaClinicaSchema = createHistoriaClinicaSchema.partial()

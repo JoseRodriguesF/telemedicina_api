@@ -10,12 +10,12 @@ const historiaService = new HistoriaClinicaService()
 const criarHistoriaSchema = z.object({
     pacienteId: z.number().int().positive(),
     dados: z.object({
-        queixa_principal: z.string().min(1, 'Queixa principal é obrigatória'),
+        queixa_principal: z.string().optional(),
         descricao_sintomas: z.string().optional(),
         historico_pessoal: z.any().optional(),
         antecedentes_familiares: z.any().optional(),
         estilo_vida: z.any().optional(),
-        historico_vacinacao: z.string().optional()
+        conteudo: z.string().min(1, 'O conteúdo da história clínica é obrigatório')
     })
 })
 
@@ -27,11 +27,9 @@ export class HistoriaClinicaController {
     async criar(request: FastifyRequest, reply: FastifyReply) {
         try {
             const { pacienteId, dados } = criarHistoriaSchema.parse(request.body)
-            const usuarioId = (request as any).user.id
 
             const historia = await historiaService.criarHistoriaClinica(
                 pacienteId,
-                usuarioId,
                 dados
             )
 

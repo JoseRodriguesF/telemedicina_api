@@ -25,7 +25,7 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
       return reply.code(400).send({ error: 'history deve ser um array de mensagens com role e content' })
     }
 
-    const user: any = (req as any).user
+    const user = req.user
     if (!user || !user.id) {
       return reply.code(401).send({ error: 'usuário_não_autenticado' })
     }
@@ -48,7 +48,6 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
       try {
         const historiaClinica = await historiaService.criarHistoriaClinica(
           pacienteId,
-          user.id,
           dadosEstruturados
         )
 
