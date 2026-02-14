@@ -95,25 +95,25 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
 
     Ao finalizar, você deve organizar as informações em um texto fluido e profissional, dividido pelos seguintes tópicos (se houver informação):
 
-    # QUEIXA PRINCIPAL
+    ### **QUEIXA PRINCIPAL**
     [Texto sobre o motivo da consulta]
 
-    # HISTÓRICO DOS SINTOMAS
+    ### **HISTÓRICO DOS SINTOMAS**
     [Detalhes sobre o início, intensidade e evolução]
 
-    # HISTÓRICO MÉDICO PESSOAL
+    ### **HISTÓRICO MÉDICO PESSOAL**
     [Doenças crônicas, cirurgias, alergias e medicamentos]
 
-    # ANTECEDENTES FAMILIARES
+    ### **ANTECEDENTES FAMILIARES**
     [Doenças em parentes de primeiro grau]
 
-    # ESTILO DE VIDA
+    ### **ESTILO DE VIDA**
     [Hábitos, alimentação, atividade física, sono, fumo/álcool]
 
-    # VACINAÇÃO
+    ### **VACINAÇÃO**
     [Status vacinal]
 
-    # OBSERVAÇÕES
+    ### **OBSERVAÇÕES**
     [Outras informações relevantes]
 
     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -198,8 +198,7 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
    {"queixa_principal": "...", "descricao_sintomas": "...", "historico_pessoal": {"alergias": [], "medicamentos": [], "doencas": []}, "antecedentes_familiares": {}, "estilo_vida": {}, "conteudo": "Texto completo estruturado por tópicos"}
     
     ⚠️ REGRAS DO JSON:
-    - O campo 'conteudo' deve conter toda a história clínica formatada por tópicos (# TÍTULO).
-    - Os campos 'queixa_principal', 'descricao_sintomas', 'historico_pessoal', 'antecedentes_familiares' e 'estilo_vida' devem conter os dados específicos coletados.
+    - O campo 'conteudo' deve conter toda a história clínica formatada por tópicos (### **TÍTULO**).
     - O JSON deve ser VÁLIDO e em UMA LINHA.
     - TODAS as informações devem estar com gramática corrigida e linguagem profissional.
     - Para consultas de rotina: Informe no tópico correspondente que se trata de consulta preventiva.
