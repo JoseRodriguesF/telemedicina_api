@@ -30,6 +30,10 @@ import { FastifyReply, FastifyRequest } from 'fastify'
  * Helper to check if user is authorized to access a consultation
  */
 function checkAuth(user: AuthenticatedUser, consulta: { medicoId: number | null, pacienteId: number }) {
+  console.log('[checkAuth] Checking access:', {
+    user: { id: user.id, medicoId: user.medicoId, pacienteId: user.pacienteId, role: user.tipo_usuario },
+    consulta: { medicoId: consulta.medicoId, pacienteId: consulta.pacienteId }
+  })
   return (user.medicoId && user.medicoId === consulta.medicoId) ||
     (user.pacienteId && user.pacienteId === consulta.pacienteId) ||
     (user.tipo_usuario === 'admin')
@@ -102,7 +106,13 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(id)
   Rooms.end(roomId)
 
-  const { hora_fim, repouso, destino_final, diagnostico, evolucao, plano_terapeutico } = (req.body as any) || {}
+  const { hora_fim, repouso, destino_final, diagnostico, evolucao, plano_terapeutico, endereco_ambulancia } = (req.body as any) || {}
+
+  // Concatenar dados da ambulância na evolução se existirem, já que a consulta não tem campos próprios no momento
+  let finalEvolucao = evolucao;
+  if (endereco_ambulancia && (String(destino_final).toLowerCase().includes('ambulância') || String(destino_final).toLowerCase().includes('ambulancia'))) {
+    finalEvolucao = `${evolucao}\n\n--- DADOS PARA AMBULÂNCIA ---\nEndereço: ${endereco_ambulancia.endereco || '-'}\nComplemento: ${endereco_ambulancia.complemento || '-'}\nTelefone: ${endereco_ambulancia.telefone || '-'}\nInformações: ${endereco_ambulancia.informacoes_adicionais || '-'}`;
+  }
 
   await prisma.consulta.update({
     where: { id },
@@ -112,7 +122,7 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
       repouso,
       destino_final,
       diagnostico,
-      evolucao,
+      evolucao: finalEvolucao,
       plano_terapeutico
     }
   })
