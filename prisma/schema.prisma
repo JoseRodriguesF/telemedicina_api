@@ -22,21 +22,21 @@ model Usuario {
 }
 
 model Paciente {
-  id                   Int               @id @default(autoincrement())
-  usuario_id           Int               @unique
-  nome_completo        String            @db.VarChar(255)
-  data_nascimento      DateTime          @db.Date
-  cpf                  String            @unique @db.VarChar(14)
-  sexo                 String            @db.VarChar(20)
-  estado_civil         String            @db.VarChar(50)
-  telefone             String            @db.VarChar(11)
-  responsavel_legal    String?           @db.VarChar(255)
-  telefone_responsavel String?           @db.VarChar(20)
-  notas                String?
-  historiaClinicaResumo String?          @map("historia_clinica") @db.Text
-  consultas            Consulta[]        @relation("ConsultaPaciente")
-  historiaClinica      HistoriaClinica[]
-  usuario              Usuario           @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                    Int               @id @default(autoincrement())
+  usuario_id            Int               @unique
+  nome_completo         String            @db.VarChar(255)
+  data_nascimento       DateTime          @db.Date
+  cpf                   String            @unique @db.VarChar(14)
+  sexo                  String            @db.VarChar(20)
+  estado_civil          String            @db.VarChar(50)
+  telefone              String            @db.VarChar(11)
+  responsavel_legal     String?           @db.VarChar(255)
+  telefone_responsavel  String?           @db.VarChar(20)
+  notas                 String?
+  historiaClinicaResumo String?           @map("historia_clinica")
+  consultas             Consulta[]        @relation("ConsultaPaciente")
+  historiaClinica       HistoriaClinica[]
+  usuario               Usuario           @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@map("pacientes")
 }
@@ -63,7 +63,7 @@ model Medico {
   especializacao_mimetype          String?           @db.VarChar(100)
   seguro_responsabilidade_data     Bytes?
   seguro_responsabilidade_mimetype String?           @db.VarChar(100)
-  resumo_profissional              String?           @db.Text
+  resumo_profissional              String?
   consultas                        Consulta[]        @relation("ConsultaMedico")
   usuario                          Usuario           @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -118,15 +118,15 @@ model HistoriaClinica {
   id                     Int       @id @default(autoincrement())
   pacienteId             Int       @map("paciente_id")
   consultaId             Int?      @map("consulta_id")
-  queixaPrincipal        String?   @map("queixa_principal") @db.Text
-  descricaoSintomas      String?   @map("descricao_sintomas") @db.Text
-  historicoPessoal       Json?     @map("historico_pessoal")
-  antecedentesFamiliares Json?     @map("antecedentes_familiares")
-  estiloVida             Json?     @map("estilo_vida")
-  conteudo               String    @db.Text
   status                 String    @default("rascunho") @db.VarChar(20)
   createdAt              DateTime  @default(now()) @map("created_at")
   updatedAt              DateTime  @updatedAt @map("updated_at")
+  conteudo               String
+  antecedentesFamiliares Json?     @map("antecedentes_familiares")
+  descricaoSintomas      String?   @map("descricao_sintomas")
+  estiloVida             Json?     @map("estilo_vida")
+  historicoPessoal       Json?     @map("historico_pessoal")
+  queixaPrincipal        String?   @map("queixa_principal")
   consulta               Consulta? @relation(fields: [consultaId], references: [id])
   paciente               Paciente  @relation(fields: [pacienteId], references: [id], onDelete: Cascade)
 
@@ -145,6 +145,8 @@ model Prescricao {
   frequencia      String
   duracao         String
   inclusoConvenio Boolean  @default(false) @map("incluso_convenio")
+  pdf_data        Bytes?   @map("pdf_data")
+  pdf_mimetype    String?  @map("pdf_mimetype") @db.VarChar(100)
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   consulta        Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)

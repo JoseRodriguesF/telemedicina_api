@@ -6,12 +6,12 @@ import { AuthenticatedUser } from '../types/shared';
  * Criar uma nova prescrição
  */
 export async function createPrescricao(
-    req: FastifyRequest<{ Body: { consultaId: number; medicamento: string; marca?: string; dosagem: string; frequencia: string; duracao: string; inclusoConvenio?: boolean } }>,
+    req: FastifyRequest<{ Body: { consultaId: number; medicamento: string; marca?: string; dosagem: string; frequencia: string; duracao: string; inclusoConvenio?: boolean; pdf?: { data: string; mimetype: string } } }>,
     reply: FastifyReply
 ) {
     try {
         const user = req.user as AuthenticatedUser;
-        const { consultaId, medicamento, marca, dosagem, frequencia, duracao, inclusoConvenio } = req.body;
+        const { consultaId, medicamento, marca, dosagem, frequencia, duracao, inclusoConvenio, pdf } = req.body;
 
         // Validações
         if (!consultaId || !medicamento || !dosagem || !frequencia || !duracao) {
@@ -43,7 +43,9 @@ export async function createPrescricao(
                 dosagem,
                 frequencia,
                 duracao,
-                inclusoConvenio: inclusoConvenio || false
+                inclusoConvenio: inclusoConvenio || false,
+                pdf_data: pdf ? Buffer.from(pdf.data, 'base64') : null,
+                pdf_mimetype: pdf ? pdf.mimetype : null
             }
         });
 
@@ -84,10 +86,30 @@ export async function getPrescricoesByConsulta(
 
         const prescricoes = await prisma.prescricao.findMany({
             where: { consultaId: Number(consultaId) },
+            select: {
+                id: true,
+                consultaId: true,
+                medicamento: true,
+                marca: true,
+                dosagem: true,
+                frequencia: true,
+                duracao: true,
+                inclusoConvenio: true,
+                createdAt: true,
+                updatedAt: true,
+                pdf_mimetype: true,
+                // pdf_data EXCLUÍDO da listagem por performance
+            },
             orderBy: { createdAt: 'desc' }
         });
 
-        return reply.code(200).send(prescricoes);
+        // Adiciona flag para o front saber que existe PDF
+        const result = prescricoes.map(p => ({
+            ...p,
+            tem_pdf: !!p.pdf_mimetype
+        }));
+
+        return reply.code(200).send(result);
     } catch (error) {
         console.error('Erro ao buscar prescrições:', error);
         return reply.code(500).send({ error: 'Erro ao buscar prescrições' });
@@ -98,13 +120,13 @@ export async function getPrescricoesByConsulta(
  * Atualizar uma prescrição
  */
 export async function updatePrescricao(
-    req: FastifyRequest<{ Params: { id: string }; Body: Partial<{ medicamento: string; marca: string; dosagem: string; frequencia: string; duracao: string; inclusoConvenio: boolean }> }>,
+    req: FastifyRequest<{ Params: { id: string }; Body: Partial<{ medicamento: string; marca: string; dosagem: string; frequencia: string; duracao: string; inclusoConvenio: boolean; pdf: { data: string; mimetype: string } }> }>,
     reply: FastifyReply
 ) {
     try {
         const user = req.user as AuthenticatedUser;
         const { id } = req.params;
-        const { medicamento, marca, dosagem, frequencia, duracao, inclusoConvenio } = req.body;
+        const { medicamento, marca, dosagem, frequencia, duracao, inclusoConvenio, pdf } = req.body;
 
         // Busca a prescrição com a consulta
         const prescricaoExistente = await prisma.prescricao.findUnique({
@@ -129,7 +151,11 @@ export async function updatePrescricao(
                 ...(dosagem && { dosagem }),
                 ...(frequencia && { frequencia }),
                 ...(duracao && { duracao }),
-                ...(inclusoConvenio !== undefined && { inclusoConvenio })
+                ...(inclusoConvenio !== undefined && { inclusoConvenio }),
+                ...(pdf && {
+                    pdf_data: Buffer.from(pdf.data, 'base64'),
+                    pdf_mimetype: pdf.mimetype
+                })
             }
         });
 
@@ -298,7 +324,18 @@ export async function getPrescricoesByPaciente(
                     pacienteId: Number(pacienteId)
                 }
             },
-            include: {
+            select: {
+                id: true,
+                consultaId: true,
+                medicamento: true,
+                marca: true,
+                dosagem: true,
+                frequencia: true,
+                duracao: true,
+                inclusoConvenio: true,
+                createdAt: true,
+                updatedAt: true,
+                pdf_mimetype: true,
                 consulta: {
                     select: {
                         data_consulta: true,
@@ -315,9 +352,56 @@ export async function getPrescricoesByPaciente(
             orderBy: { createdAt: 'desc' }
         });
 
-        return reply.code(200).send(prescricoes);
+        // Adiciona flag para o front
+        const result = prescricoes.map(p => ({
+            ...p,
+            tem_pdf: !!p.pdf_mimetype
+        }));
+
+        return reply.code(200).send(result);
     } catch (error) {
         console.error('Erro ao buscar histórico de prescrições:', error);
         return reply.code(500).send({ error: 'Erro ao buscar histórico de prescrições' });
+    }
+}
+
+/**
+ * Obter o PDF de uma prescrição
+ */
+export async function getPrescricaoPdf(
+    req: FastifyRequest<{ Params: { id: string } }>,
+    reply: FastifyReply
+) {
+    try {
+        const user = req.user as AuthenticatedUser;
+        const { id } = req.params;
+
+        const prescricao = await prisma.prescricao.findUnique({
+            where: { id: Number(id) },
+            include: { consulta: true }
+        });
+
+        // cast para any para evitar erro de tipo antes do prisma generate
+        const p = prescricao as any;
+
+        if (!p || !p.pdf_data) {
+            return reply.code(404).send({ error: 'PDF não encontrado' });
+        }
+
+        // Verifica permissão
+        const isAuthorized =
+            (user.tipo_usuario === 'medico' && p.consulta.medicoId === user.medicoId) ||
+            (user.tipo_usuario === 'paciente' && p.consulta.pacienteId === user.pacienteId);
+
+        if (!isAuthorized) {
+            return reply.code(403).send({ error: 'Acesso negado' });
+        }
+
+        return reply
+            .type(p.pdf_mimetype || 'application/pdf')
+            .send(p.pdf_data);
+    } catch (error) {
+        console.error('Erro ao buscar PDF da prescrição:', error);
+        return reply.code(500).send({ error: 'Erro ao buscar PDF' });
     }
 }
