@@ -97,41 +97,34 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
    - Dar diagnósticos ou conselhos médicos
 
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    🎯 ESTRUTURAÇÃO DO PRONTUÁRIO MÉDICO (FORMAL):
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-   Ao finalizar, você DEVE gerar um texto profissional para o campo "conteudo" do JSON. O texto deve seguir a estrutura de um **Relatório de Triagem Técnica**.
+   Ao finalizar, você DEVE gerar um texto profissional para o campo "conteudo" do JSON.
 
    ESTRUTURA OBRIGATÓRIA NO "conteudo":
-   # **PRONTUÁRIO DE TRIAGEM PRÉ-CONSULTA**
-   **ID DO PACIENTE:** [Nome Completo]
-   **DATA DA TRIAGEM:** [Data Atual]
-   **RESPONSÁVEL:** Angélica (Enfermeira Virtual)
 
-   ---
-
-   ### **1. QUEIXA PRINCIPAL**
+   ### **QUEIXA PRINCIPAL**
    [Motivo claro e direto em terminologia médica]
 
-   ### **2. ANAMNESE E HISTÓRICO DA QUEIXA**
-   [Relato técnico e cronológico dos sintomas OU detalhes da medicação/exame solicitado.]
+   ### **HISTÓRICO DOS SINTOMAS**
+   [Relato técnico e cronológico dos sintomas OU detalhes da medicação/exame solicitado]
 
-   ### **3. ANTECEDENTES E HISTÓRICO PESSOAL**
-   - **Doenças conhecidas:** [Lista ou "Nega"]
-   - **Alergias:** [Lista ou "Nega"]
-   - **Medicamentos em uso:** [Lista ou "Nega"]
+   ### **HISTÓRICO MÉDICO PESSOAL**
+   Doenças crônicas: [Lista ou "Nenhuma"]
+   Medicamentos: [Lista ou "Nenhum"]
+   Alergias: [Lista ou "Nenhuma"]
 
-   ### **4. HISTÓRICO FAMILIAR E ESTILO DE VIDA**
-   [Parentesco e patologias familiares relevantes + Hábitos como fumo/álcool e atividades físicas]
+   ### **ANTECEDENTES FAMILIARES**
+   [Parentesco e patologias familiares relevantes, ou "Nenhuma doença relevante"]
 
-   ### **5. STATUS VACINAL**
-   [Relato sobre vacinação se coletado]
+   ### **ESTILO DE VIDA**
+   [Hábitos como fumo/álcool/atividades físicas]
 
-   ---
-   ⚠️ **SÍNTESE DA CONDUTA:** Paciente triagado e encaminhado para atendimento médico conforme fluxo identificado.
+   ### **VACINAÇÃO**
+   [Status vacinal se coletado]
 
-   ⚠️ REGRA DE OURO: Use itens em lista (bullet points) para antecedentes. O texto deve ser estritamente profissional e informativo.
+   ⚠️ REGRA DE OURO: Use formato limpo e direto. Evite bullet points redundantes. O texto deve ser estritamente profissional e informativo.
 
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    ❓ QUANDO O PACIENTE FAZER PERGUNTAS:

@@ -76,104 +76,196 @@ export class HistoriaClinicaService {
     }
 
     /**
-     * Gera um texto consolidado unificando os dados de todas as triagens
+     * Gera um texto consolidado unificando dados permanentes (sem queixa principal e sintomas)
      */
     private gerarResumoConsolidado(historias: any[]): string {
-        let historicoPessoal: string[] = [];
-        let antecedentesFamiliares: string[] = [];
-        let estiloVida: string[] = [];
-        let vacinacao: string[] = [];
+        const doencas = new Set<string>();
+        const alergias = new Set<string>();
+        const medicamentos = new Set<string>();
+        const antecedentesFamiliares = new Map<string, Set<string>>();
+        const estiloVidaMap = new Map<string, Set<string>>();
+        const vacinacao = new Set<string>();
 
         historias.forEach(h => {
             // Extrair de historicoPessoal
             if (h.historicoPessoal) {
                 const hp = h.historicoPessoal;
+
+                // Doenças
                 if (hp.doencas) {
-                    if (Array.isArray(hp.doencas)) historicoPessoal.push(...hp.doencas);
-                    else historicoPessoal.push(hp.doencas);
+                    const list = Array.isArray(hp.doencas) ? hp.doencas : [hp.doencas];
+                    list.forEach((d: string) => {
+                        const clean = this.normalizeText(d);
+                        if (clean && !this.isNegative(clean)) doencas.add(clean);
+                    });
                 }
+
+                // Alergias
                 if (hp.alergias) {
-                    const alergias = Array.isArray(hp.alergias) ? hp.alergias : [hp.alergias];
-                    alergias.forEach((a: string) => {
-                        if (a && !/nenhuma|não tem/i.test(a)) historicoPessoal.push(`Alergia: ${a}`);
+                    const list = Array.isArray(hp.alergias) ? hp.alergias : [hp.alergias];
+                    list.forEach((a: string) => {
+                        const clean = this.normalizeText(a);
+                        if (clean && !this.isNegative(clean)) alergias.add(clean);
                     });
                 }
+
+                // Medicamentos
                 if (hp.medicamentos) {
-                    const medicamentos = Array.isArray(hp.medicamentos) ? hp.medicamentos : [hp.medicamentos];
-                    medicamentos.forEach((m: string) => {
-                        if (m && !/nenhum|não toma/i.test(m)) historicoPessoal.push(`Medicamento: ${m}`);
+                    const list = Array.isArray(hp.medicamentos) ? hp.medicamentos : [hp.medicamentos];
+                    list.forEach((m: string) => {
+                        const clean = this.normalizeText(m);
+                        if (clean && !this.isNegative(clean)) medicamentos.add(clean);
                     });
                 }
-                if (hp.vacinacao && !vacinacao.includes(hp.vacinacao) && !/não informad|pendente/i.test(hp.vacinacao)) {
-                    vacinacao.push(hp.vacinacao);
+
+                // Vacinação
+                if (hp.vacinacao) {
+                    const clean = this.normalizeText(hp.vacinacao);
+                    if (clean && !this.isNegative(clean)) vacinacao.add(clean);
                 }
             }
 
             // Antecedentes Familiares
             if (h.antecedentesFamiliares) {
                 const af = h.antecedentesFamiliares;
-                if (typeof af === 'object') {
+                if (typeof af === 'object' && !Array.isArray(af)) {
                     Object.entries(af).forEach(([key, val]) => {
-                        if (val && typeof val === 'string' && !/nenhum|não tem|nega|nada/i.test(val)) {
-                            antecedentesFamiliares.push(`${key}: ${val}`);
+                        if (val && typeof val === 'string') {
+                            const cleanKey = this.normalizeFieldName(key);
+                            const cleanVal = this.normalizeText(val as string);
+                            if (cleanVal && !this.isNegative(cleanVal)) {
+                                if (!antecedentesFamiliares.has(cleanKey)) {
+                                    antecedentesFamiliares.set(cleanKey, new Set());
+                                }
+                                antecedentesFamiliares.get(cleanKey)!.add(cleanVal);
+                            }
                         }
                     });
-                } else if (typeof af === 'string' && af.trim() && !/nenhum|nada/i.test(af)) {
-                    antecedentesFamiliares.push(af);
+                } else if (typeof af === 'string') {
+                    const clean = this.normalizeText(af);
+                    if (clean && !this.isNegative(clean)) {
+                        if (!antecedentesFamiliares.has('Família')) {
+                            antecedentesFamiliares.set('Família', new Set());
+                        }
+                        antecedentesFamiliares.get('Família')!.add(clean);
+                    }
                 }
             }
 
-            // Estilo de Vida
+            // Estilo de Vida (normalizar nomes de campos)
             if (h.estiloVida) {
                 const ev = h.estiloVida;
-                if (typeof ev === 'object') {
+                if (typeof ev === 'object' && !Array.isArray(ev)) {
                     Object.entries(ev).forEach(([key, val]) => {
-                        if (val && typeof val === 'string' && !/não informado|sem dados/i.test(val)) {
-                            estiloVida.push(`${key}: ${val}`);
+                        if (val && typeof val === 'string') {
+                            const normalizedKey = this.normalizeFieldName(key);
+                            const cleanVal = this.normalizeText(val as string);
+                            if (cleanVal && !this.isNegative(cleanVal)) {
+                                if (!estiloVidaMap.has(normalizedKey)) {
+                                    estiloVidaMap.set(normalizedKey, new Set());
+                                }
+                                estiloVidaMap.get(normalizedKey)!.add(cleanVal);
+                            }
                         }
                     });
-                } else if (typeof ev === 'string' && ev.trim()) {
-                    estiloVida.push(ev);
+                } else if (typeof ev === 'string') {
+                    const clean = this.normalizeText(ev);
+                    if (clean && !this.isNegative(clean)) {
+                        if (!estiloVidaMap.has('Geral')) {
+                            estiloVidaMap.set('Geral', new Set());
+                        }
+                        estiloVidaMap.get('Geral')!.add(clean);
+                    }
                 }
             }
         });
 
-        // Helper para limpar e unificar de forma inteligente
-        const clean = (arr: string[]) => {
-            const uniqueItems = Array.from(new Set(arr)).filter(s => s && s.length > 2);
+        // Montar o texto final
+        let resumo = '';
 
-            // Se houver algum item que NÃO seja "nenhuma/não informado", removemos os itens que são "nenhuma/não informado"
-            const relevantItems = uniqueItems.filter(i => !/^(nenhuma|nenhum|não informado|nega|sem dados|nada)\.?$/i.test(i.trim()));
+        if (doencas.size > 0 || alergias.size > 0 || medicamentos.size > 0) {
+            resumo += 'HISTÓRICO MÉDICO PESSOAL\n';
+            if (doencas.size > 0) resumo += `Doenças crônicas: ${Array.from(doencas).join(', ')}\n`;
+            if (medicamentos.size > 0) resumo += `Medicamentos: ${Array.from(medicamentos).join(', ')}\n`;
+            if (alergias.size > 0) resumo += `Alergias: ${Array.from(alergias).join(', ')}\n`;
+            resumo += '\n';
+        }
 
-            if (relevantItems.length > 0) {
-                return relevantItems.map(i => `- ${i}`).join('\n');
-            }
+        if (antecedentesFamiliares.size > 0) {
+            resumo += 'ANTECEDENTES FAMILIARES\n';
+            antecedentesFamiliares.forEach((values, key) => {
+                resumo += `${key}: ${Array.from(values).join(', ')}\n`;
+            });
+            resumo += '\n';
+        }
 
-            // Se só tiver "nenhuma", retorna o primeiro "nenhuma" encontrado
-            return uniqueItems.length > 0 ? (uniqueItems[0].includes('Nega') ? uniqueItems[0] : `- ${uniqueItems[0]}`) : 'Sem dados registrados';
-        };
+        if (estiloVidaMap.size > 0) {
+            resumo += 'ESTILO DE VIDA\n';
+            estiloVidaMap.forEach((values, key) => {
+                resumo += `${key}: ${Array.from(values).join(', ')}\n`;
+            });
+            resumo += '\n';
+        }
 
-        const ultima = historias[historias.length - 1];
+        if (vacinacao.size > 0) {
+            resumo += 'VACINAÇÃO\n';
+            resumo += `${Array.from(vacinacao).join(', ')}\n`;
+        }
 
-        const sections = [
-            { label: '### **1. QUEIXA PRINCIPAL DA ÚLTIMA TRIAGEM**', content: ultima?.queixaPrincipal },
-            { label: '### **2. HISTÓRICO DA QUEIXA / DETALHES DO PEDIDO**', content: ultima?.descricaoSintomas },
-            { label: '### **3. HISTÓRICO MÉDICO PESSOAL (CONSOLIDADO)**', content: clean(historicoPessoal) },
-            { label: '### **4. ANTECEDENTES FAMILIARES (CONSOLIDADO)**', content: clean(antecedentesFamiliares) },
-            { label: '### **5. ESTILO DE VIDA (CONSOLIDADO)**', content: clean(estiloVida) },
-            { label: '### **6. VACINAÇÃO**', content: clean(vacinacao) }
-        ];
-
-
-        const report = sections
-            .filter(s => s.content)
-            .map(s => `${s.label}\n${s.content}`)
-            .join('\n\n');
-
-        return `# **PRONTUÁRIO CONSOLIDADO DO PACIENTE**\n*Relatório gerado automaticamente integrando todo o histórico de triagens*\n\n---\n\n${report}`;
+        return resumo.trim();
     }
 
+    /**
+     * Normaliza nomes de campos removendo underscores, acentos extras, etc
+     */
+    private normalizeFieldName(fieldName: string): string {
+        const map: Record<string, string> = {
+            'exercicios': 'Atividade física',
+            'atividade_fisica': 'Atividade física',
+            'atividade_físic': 'Atividade física',
+            'atividadefisica': 'Atividade física',
+            'atividade física': 'Atividade física',
+            'alcool': 'Álcool',
+            'álcool': 'Álcool',
+            'tabagismo': 'Tabagismo',
+            'diabetes': 'Diabetes',
+            'diabetes_tipo': 'Diabetes',
+            'avô': 'Avô',
+            'avó': 'Avó',
+            'avo': 'Avô',
+            'colesterol_alto': 'Colesterol alto',
+            'colesterol alto': 'Colesterol alto',
+            'alimentacao': 'Alimentação',
+            'alimentação': 'Alimentação',
+            'estilo_de_vida': 'Geral'
+        };
 
+        const lower = fieldName.toLowerCase().trim().replace(/_/g, ' ');
+        return map[lower] || this.capitalizeFirst(lower);
+    }
+
+    private capitalizeFirst(text: string): string {
+        return text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    /**
+     * Normaliza texto removendo espaços extras e prefixos
+     */
+    private normalizeText(text: string): string {
+        if (!text) return '';
+        return text.trim()
+            .replace(/\s+/g, ' ')
+            .replace(/^(Alergia|Medicamento|Doença):\s*/i, '');
+    }
+
+    /**
+     * Verifica se o texto indica ausência/negação
+     */
+    private isNegative(text: string): boolean {
+        const lower = text.toLowerCase().trim();
+        return /^(nenhum(a)?|não (tem|há|possui|usa|toma|informad[oa])|nega|sem dados?|n\/?a|nada)\.?$/i.test(lower) ||
+            lower.length < 2;
+    }
 
 
     /**
