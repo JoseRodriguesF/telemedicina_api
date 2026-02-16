@@ -153,18 +153,24 @@ export class HistoriaClinicaService {
             return uniqueItems.length > 0 ? uniqueItems[0] : '';
         };
 
+        const ultima = historias[historias.length - 1];
+
         const sections = [
-            { label: 'HISTÓRICO MÉDICO PESSOAL', content: clean(historicoPessoal) },
-            { label: 'ANTECEDENTES FAMILIARES', content: clean(antecedentesFamiliares) },
-            { label: 'ESTILO DE VIDA', content: clean(estiloVida) },
-            { label: 'VACINAÇÃO', content: clean(vacinacao) }
+            { label: '### **QUEIXA PRINCIPAL**', content: ultima?.queixaPrincipal },
+            { label: '### **HISTÓRICO DOS SINTOMAS / DETALHES DO PEDIDO**', content: ultima?.descricaoSintomas },
+            { label: '### **HISTÓRICO MÉDICO PESSOAL**', content: clean(historicoPessoal) },
+            { label: '### **ANTECEDENTES FAMILIARES**', content: clean(antecedentesFamiliares) },
+            { label: '### **ESTILO DE VIDA**', content: clean(estiloVida) },
+            { label: '### **VACINAÇÃO**', content: clean(vacinacao) }
         ];
+
 
         return sections
             .filter(s => s.content)
             .map(s => `${s.label}\n${s.content}`)
             .join('\n\n');
     }
+
 
 
     /**

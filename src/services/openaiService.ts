@@ -97,31 +97,31 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
    - Dar diagnósticos ou conselhos médicos
 
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   🎯 ESTRUTURAÇÃO DA HISTÓRIA CLÍNICA (MUITO IMPORTANTE):
+   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   🎯 ESTRUTURAÇÃO OBRIGATÓRIA DA HISTÓRIA CLÍNICA:
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-   Ao finalizar, você deve organizar as informações em um texto fluido e profissional, dividido EXATAMENTE pelos seguintes tópicos (se houver informação):
+   Ao finalizar, você DEVE gerar um texto profissional para o campo "conteudo" do JSON, seguindo RIGOROSAMENTE esta estrutura de Markdown. Se um dado não existir, apenas pule o tópico.
 
    ### **QUEIXA PRINCIPAL**
-   [Texto sobre o motivo da consulta ou pedido]
+   [Motivo claro e direto]
 
    ### **HISTÓRICO DOS SINTOMAS / DETALHES DO PEDIDO**
-   [Detalhes técnicos: início/evolução para sintomas OU medicação/dosagem/estabilidade para pedidos]
+   [Relato técnico e cronológico dos sintomas OU detalhes da medicação/exame solicitado]
 
    ### **HISTÓRICO MÉDICO PESSOAL**
-   [Doenças crônicas, cirurgias, alergias e medicamentos em uso]
+   [Alergias, medicamentos em uso, doenças conhecidas, cirurgias]
 
-   ### **ANTECEDENTES FAMILIARES** (Se relevante/coletado)
-   [Doenças em parentes de primeiro grau]
+   ### **ANTECEDENTES FAMILIARES**
+   [Apenas se relevante ou coletado]
 
-   ### **ESTILO DE VIDA** (Se relevante/coletado)
-   [Hábitos, alimentação, atividade física, fumo/álcool]
+   ### **ESTILO DE VIDA**
+   [Apenas se relevante ou coletado]
 
-   ### **VACINAÇÃO** (Se relevante/coletado)
-   [Status vacinal]
+   ### **VACINAÇÃO**
+   [Apenas se relevante ou coletado]
 
-   ⚠️ REGRA DE OURO DA FORMATAÇÃO: O médico precisa bater o olho e ler rápido. Use negrito nos títulos acima e organize o conteúdo de forma clara. Use termos médicos quando apropriado (ex: "Cefaleia" em vez de "dor de cabeça", "Uso contínuo" para receitas).
-
+   ⚠️ AVISO: NÃO use labels como "Queixa principal: ...". Use APENAS os cabeçalhos em Markdown acima (### **TÍTULO**). O texto abaixo de cada título deve ser fluido e sem repetições.
 
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    ❓ QUANDO O PACIENTE FAZER PERGUNTAS:
@@ -136,11 +136,12 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
    Quando julgar que tem o suficiente para o médico atender bem aquele caso específico:
    1. Informe: "Sua triagem foi concluída com sucesso. Você já pode prosseguir para a consulta."
    2. Adicione: [TRIAGEM_CONCLUIDA]
-   3. Adicione: [DADOS_ESTRUTURADOS] seguido do JSON abaixo em UMA ÚNICA LINHA:
+   3. Adicione: [DADOS_ESTRUTURADOS] seguido do JSON abaixo em UMA ÚNICA LINHA, com o "conteudo" formatado conforme as regras acima:
    
-   {"queixa_principal": "...", "descricao_sintomas": "...", "historico_pessoal": {"alergias": [], "medicamentos": [], "doencas": []}, "antecedentes_familiares": {}, "estilo_vida": {}, "vacinacao": "...", "conteudo": "Texto completo estruturado"}
+   {"queixa_principal": "...", "descricao_sintomas": "...", "historico_pessoal": {"alergias": [], "medicamentos": [], "doencas": []}, "antecedentes_familiares": {}, "estilo_vida": {}, "vacinacao": "...", "conteudo": "Text completo formatado com ### **TÍTULOS**"}
    
    🎯 REGRA DE OURO: Pense antes de perguntar: "Essa pergunta faz sentido para o que o paciente acabou de me dizer?". Se não fizer, PULE ou ADAPTE.`
+
 
 
   const response = await client.chat.completions.create({
