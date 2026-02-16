@@ -146,30 +146,33 @@ export class HistoriaClinicaService {
             const relevantItems = uniqueItems.filter(i => !/^(nenhuma|nenhum|não informado|nega|sem dados|nada)\.?$/i.test(i.trim()));
 
             if (relevantItems.length > 0) {
-                return relevantItems.join('. ');
+                return relevantItems.map(i => `- ${i}`).join('\n');
             }
 
             // Se só tiver "nenhuma", retorna o primeiro "nenhuma" encontrado
-            return uniqueItems.length > 0 ? uniqueItems[0] : '';
+            return uniqueItems.length > 0 ? (uniqueItems[0].includes('Nega') ? uniqueItems[0] : `- ${uniqueItems[0]}`) : 'Sem dados registrados';
         };
 
         const ultima = historias[historias.length - 1];
 
         const sections = [
-            { label: '### **QUEIXA PRINCIPAL**', content: ultima?.queixaPrincipal },
-            { label: '### **HISTÓRICO DOS SINTOMAS / DETALHES DO PEDIDO**', content: ultima?.descricaoSintomas },
-            { label: '### **HISTÓRICO MÉDICO PESSOAL**', content: clean(historicoPessoal) },
-            { label: '### **ANTECEDENTES FAMILIARES**', content: clean(antecedentesFamiliares) },
-            { label: '### **ESTILO DE VIDA**', content: clean(estiloVida) },
-            { label: '### **VACINAÇÃO**', content: clean(vacinacao) }
+            { label: '### **1. QUEIXA PRINCIPAL DA ÚLTIMA TRIAGEM**', content: ultima?.queixaPrincipal },
+            { label: '### **2. HISTÓRICO DA QUEIXA / DETALHES DO PEDIDO**', content: ultima?.descricaoSintomas },
+            { label: '### **3. HISTÓRICO MÉDICO PESSOAL (CONSOLIDADO)**', content: clean(historicoPessoal) },
+            { label: '### **4. ANTECEDENTES FAMILIARES (CONSOLIDADO)**', content: clean(antecedentesFamiliares) },
+            { label: '### **5. ESTILO DE VIDA (CONSOLIDADO)**', content: clean(estiloVida) },
+            { label: '### **6. VACINAÇÃO**', content: clean(vacinacao) }
         ];
 
 
-        return sections
+        const report = sections
             .filter(s => s.content)
             .map(s => `${s.label}\n${s.content}`)
             .join('\n\n');
+
+        return `# **PRONTUÁRIO CONSOLIDADO DO PACIENTE**\n*Relatório gerado automaticamente integrando todo o histórico de triagens*\n\n---\n\n${report}`;
     }
+
 
 
 
