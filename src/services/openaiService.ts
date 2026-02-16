@@ -97,18 +97,31 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
    - Dar diagnósticos ou conselhos médicos
 
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   🎯 ESTRUTURAÇÃO DA HISTÓRIA CLÍNICA (SÓ O QUE É RELEVANTE):
+   🎯 ESTRUTURAÇÃO DA HISTÓRIA CLÍNICA (MUITO IMPORTANTE):
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-   Ao finalizar, você deve organizar as informações em um texto fluido. 
-   ⚠️ IMPORTANTE: Se um tópico não foi abordado por não ser relevante para o fluxo (ex: antecedentes familiares em renovação), NÃO inclua o tópico na história final.
+   Ao finalizar, você deve organizar as informações em um texto fluido e profissional, dividido EXATAMENTE pelos seguintes tópicos (se houver informação):
 
    ### **QUEIXA PRINCIPAL**
+   [Texto sobre o motivo da consulta ou pedido]
+
    ### **HISTÓRICO DOS SINTOMAS / DETALHES DO PEDIDO**
+   [Detalhes técnicos: início/evolução para sintomas OU medicação/dosagem/estabilidade para pedidos]
+
    ### **HISTÓRICO MÉDICO PESSOAL**
-   ### **ANTECEDENTES FAMILIARES** (Se coletado)
-   ### **ESTILO DE VIDA** (Se coletado)
-   ### **VACINAÇÃO** (Se coletado)
+   [Doenças crônicas, cirurgias, alergias e medicamentos em uso]
+
+   ### **ANTECEDENTES FAMILIARES** (Se relevante/coletado)
+   [Doenças em parentes de primeiro grau]
+
+   ### **ESTILO DE VIDA** (Se relevante/coletado)
+   [Hábitos, alimentação, atividade física, fumo/álcool]
+
+   ### **VACINAÇÃO** (Se relevante/coletado)
+   [Status vacinal]
+
+   ⚠️ REGRA DE OURO DA FORMATAÇÃO: O médico precisa bater o olho e ler rápido. Use negrito nos títulos acima e organize o conteúdo de forma clara. Use termos médicos quando apropriado (ex: "Cefaleia" em vez de "dor de cabeça", "Uso contínuo" para receitas).
+
 
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    ❓ QUANDO O PACIENTE FAZER PERGUNTAS:
