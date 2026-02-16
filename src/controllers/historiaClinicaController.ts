@@ -15,6 +15,7 @@ const criarHistoriaSchema = z.object({
         historico_pessoal: z.any().optional(),
         antecedentes_familiares: z.any().optional(),
         estilo_vida: z.any().optional(),
+        vacinacao: z.string().optional(),
         conteudo: z.string().min(1, 'O conteúdo da história clínica é obrigatório')
     })
 })

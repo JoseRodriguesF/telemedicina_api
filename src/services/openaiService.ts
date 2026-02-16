@@ -195,7 +195,7 @@ export async function chatWithOpenAI(message: string, nomePaciente: string | nul
     3. Adicione exatamente: [TRIAGEM_CONCLUIDA]
     4. Adicione exatamente: [DADOS_ESTRUTURADOS] seguido do JSON abaixo em UMA ÚNICA LINHA:
     
-   {"queixa_principal": "...", "descricao_sintomas": "...", "historico_pessoal": {"alergias": [], "medicamentos": [], "doencas": []}, "antecedentes_familiares": {}, "estilo_vida": {}, "conteudo": "Texto completo estruturado por tópicos"}
+   {"queixa_principal": "...", "descricao_sintomas": "...", "historico_pessoal": {"alergias": [], "medicamentos": [], "doencas": []}, "antecedentes_familiares": {}, "estilo_vida": {}, "vacinacao": "...", "conteudo": "Texto completo estruturado por tópicos"}
     
     ⚠️ REGRAS DO JSON:
     - O campo 'conteudo' deve conter toda a história clínica formatada por tópicos (### **TÍTULO**).

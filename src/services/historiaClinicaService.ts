@@ -8,6 +8,7 @@ export interface DadosHistoriaClinica {
     historico_pessoal?: any
     antecedentes_familiares?: any
     estilo_vida?: any
+    vacinacao?: string
     conteudo: string
 }
 
@@ -35,7 +36,10 @@ export class HistoriaClinicaService {
                     pacienteId,
                     queixaPrincipal: dados.queixa_principal ?? "",
                     descricaoSintomas: dados.descricao_sintomas ?? "",
-                    historicoPessoal: dados.historico_pessoal ?? {},
+                    historicoPessoal: {
+                        ...(typeof dados.historico_pessoal === 'object' ? dados.historico_pessoal : { original: dados.historico_pessoal }),
+                        vacinacao: dados.vacinacao
+                    } as any,
                     antecedentesFamiliares: dados.antecedentes_familiares ?? {},
                     estiloVida: dados.estilo_vida ?? {},
                     conteudo: dados.conteudo,
@@ -43,15 +47,22 @@ export class HistoriaClinicaService {
                 }
             })
 
-            // Atualizar também o perfil do paciente com a história clínica estruturada
+            // Buscar todas as histórias clínicas para gerar o mix consolidado
+            const todasHistorias = await prisma.historiaClinica.findMany({
+                where: { pacienteId },
+                orderBy: { createdAt: 'asc' }
+            });
+
+            const resumoConsolidado = this.gerarResumoConsolidado(todasHistorias);
+
             await prisma.paciente.update({
                 where: { id: pacienteId },
                 data: {
-                    historiaClinicaResumo: dados.conteudo
+                    historiaClinicaResumo: resumoConsolidado
                 }
             })
 
-            logger.info(`História clínica criada e perfil atualizado com sucesso`, {
+            logger.info(`História clínica criada e perfil atualizado com mix consolidado`, {
                 historiaClinicaId: historiaClinica.id,
                 pacienteId
             })
@@ -63,6 +74,98 @@ export class HistoriaClinicaService {
             throw new ApiError('Erro ao salvar história clínica', 500, 'CREATE_HISTORIA_ERROR')
         }
     }
+
+    /**
+     * Gera um texto consolidado unificando os dados de todas as triagens
+     */
+    private gerarResumoConsolidado(historias: any[]): string {
+        let historicoPessoal: string[] = [];
+        let antecedentesFamiliares: string[] = [];
+        let estiloVida: string[] = [];
+        let vacinacao: string[] = [];
+
+        historias.forEach(h => {
+            // Extrair de historicoPessoal
+            if (h.historicoPessoal) {
+                const hp = h.historicoPessoal;
+                if (hp.doencas) {
+                    if (Array.isArray(hp.doencas)) historicoPessoal.push(...hp.doencas);
+                    else historicoPessoal.push(hp.doencas);
+                }
+                if (hp.alergias) {
+                    const alergias = Array.isArray(hp.alergias) ? hp.alergias : [hp.alergias];
+                    alergias.forEach((a: string) => {
+                        if (a && !/nenhuma|não tem/i.test(a)) historicoPessoal.push(`Alergia: ${a}`);
+                    });
+                }
+                if (hp.medicamentos) {
+                    const medicamentos = Array.isArray(hp.medicamentos) ? hp.medicamentos : [hp.medicamentos];
+                    medicamentos.forEach((m: string) => {
+                        if (m && !/nenhum|não toma/i.test(m)) historicoPessoal.push(`Medicamento: ${m}`);
+                    });
+                }
+                if (hp.vacinacao && !vacinacao.includes(hp.vacinacao) && !/não informad|pendente/i.test(hp.vacinacao)) {
+                    vacinacao.push(hp.vacinacao);
+                }
+            }
+
+            // Antecedentes Familiares
+            if (h.antecedentesFamiliares) {
+                const af = h.antecedentesFamiliares;
+                if (typeof af === 'object') {
+                    Object.entries(af).forEach(([key, val]) => {
+                        if (val && typeof val === 'string' && !/nenhum|não tem|nega|nada/i.test(val)) {
+                            antecedentesFamiliares.push(`${key}: ${val}`);
+                        }
+                    });
+                } else if (typeof af === 'string' && af.trim() && !/nenhum|nada/i.test(af)) {
+                    antecedentesFamiliares.push(af);
+                }
+            }
+
+            // Estilo de Vida
+            if (h.estiloVida) {
+                const ev = h.estiloVida;
+                if (typeof ev === 'object') {
+                    Object.entries(ev).forEach(([key, val]) => {
+                        if (val && typeof val === 'string' && !/não informado|sem dados/i.test(val)) {
+                            estiloVida.push(`${key}: ${val}`);
+                        }
+                    });
+                } else if (typeof ev === 'string' && ev.trim()) {
+                    estiloVida.push(ev);
+                }
+            }
+        });
+
+        // Helper para limpar e unificar de forma inteligente
+        const clean = (arr: string[]) => {
+            const uniqueItems = Array.from(new Set(arr)).filter(s => s && s.length > 2);
+
+            // Se houver algum item que NÃO seja "nenhuma/não informado", removemos os itens que são "nenhuma/não informado"
+            const relevantItems = uniqueItems.filter(i => !/^(nenhuma|nenhum|não informado|nega|sem dados|nada)\.?$/i.test(i.trim()));
+
+            if (relevantItems.length > 0) {
+                return relevantItems.join('. ');
+            }
+
+            // Se só tiver "nenhuma", retorna o primeiro "nenhuma" encontrado
+            return uniqueItems.length > 0 ? uniqueItems[0] : '';
+        };
+
+        const sections = [
+            { label: 'HISTÓRICO MÉDICO PESSOAL', content: clean(historicoPessoal) },
+            { label: 'ANTECEDENTES FAMILIARES', content: clean(antecedentesFamiliares) },
+            { label: 'ESTILO DE VIDA', content: clean(estiloVida) },
+            { label: 'VACINAÇÃO', content: clean(vacinacao) }
+        ];
+
+        return sections
+            .filter(s => s.content)
+            .map(s => `${s.label}\n${s.content}`)
+            .join('\n\n');
+    }
+
 
     /**
      * Busca todas as histórias clínicas de um paciente
