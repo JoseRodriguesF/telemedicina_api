@@ -12,6 +12,76 @@ interface ChatBody {
   history?: ChatMessage[] // Histórico opcional enviado pelo frontend
 }
 
+/**
+ * Valida e sanitiza os dados estruturados retornados pela IA
+ */
+function validarESanitizarDados(dados: any): any {
+  if (!dados || typeof dados !== 'object') {
+    throw new Error('Dados estruturados inválidos')
+  }
+
+  // Garantir que historico_pessoal seja um objeto com arrays
+  if (dados.historico_pessoal) {
+    const hp = dados.historico_pessoal
+
+    // Garantir que doencas seja array
+    if (hp.doencas && !Array.isArray(hp.doencas)) {
+      hp.doencas = typeof hp.doencas === 'string' ? [hp.doencas] : []
+    } else if (!hp.doencas) {
+      hp.doencas = []
+    }
+
+    // Garantir que medicamentos seja array
+    if (hp.medicamentos && !Array.isArray(hp.medicamentos)) {
+      hp.medicamentos = typeof hp.medicamentos === 'string' ? [hp.medicamentos] : []
+    } else if (!hp.medicamentos) {
+      hp.medicamentos = []
+    }
+
+    // Garantir que alergias seja array
+    if (hp.alergias && !Array.isArray(hp.alergias)) {
+      hp.alergias = typeof hp.alergias === 'string' ? [hp.alergias] : []
+    } else if (!hp.alergias) {
+      hp.alergias = []
+    }
+
+    // Filtrar valores null, undefined ou vazios
+    hp.doencas = hp.doencas.filter((d: any) => d && typeof d === 'string' && d.trim())
+    hp.medicamentos = hp.medicamentos.filter((m: any) => m && typeof m === 'string' && m.trim())
+    hp.alergias = hp.alergias.filter((a: any) => a && typeof a === 'string' && a.trim())
+  } else {
+    dados.historico_pessoal = { doencas: [], medicamentos: [], alergias: [] }
+  }
+
+  // Garantir que antecedentes_familiares seja objeto
+  if (!dados.antecedentes_familiares || typeof dados.antecedentes_familiares !== 'object') {
+    dados.antecedentes_familiares = {}
+  }
+
+  // Garantir que estilo_vida seja objeto
+  if (!dados.estilo_vida || typeof dados.estilo_vida !== 'object') {
+    dados.estilo_vida = {}
+  }
+
+  // Garantir que conteudo exista e seja string
+  if (!dados.conteudo || typeof dados.conteudo !== 'string') {
+    throw new Error('Campo conteudo é obrigatório')
+  }
+
+  return dados
+}
+
+/**
+ * Formata o resumo do histórico clínico para incluir no contexto da IA
+ */
+function formatarContextoHistorico(resumo: string | null): string {
+  if (!resumo || resumo.trim() === '') {
+    return 'Este é o primeiro atendimento do paciente. Nenhum histórico médico registrado anteriormente.'
+  }
+
+  return `IMPORTANTE: O paciente já possui o seguinte histórico médico registrado em atendimentos anteriores:\n\n${resumo}\n\nVocê PODE usar essas informações como referência, mas SEMPRE confirme com o paciente se houve mudanças. NÃO presuma que tudo permanece igual.`
+}
+
 export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody }>, reply: FastifyReply) {
   try {
     const { message, history = [] } = req.body
@@ -30,25 +100,45 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
       return reply.code(401).send({ error: 'usuário_não_autenticado' })
     }
 
-    // Buscar nome do paciente se o usuário for paciente
+    // Buscar nome do paciente e histórico clínico se o usuário for paciente
     let nomePaciente: string | null = null
     let pacienteId: number | null = null
+    let contextoHistorico: string = ''
+
     if (user.tipo_usuario === 'paciente') {
       const paciente = await prisma.paciente.findUnique({
-        where: { usuario_id: user.id }
+        where: { usuario_id: user.id },
+        select: {
+          id: true,
+          nome_completo: true,
+          historiaClinicaResumo: true
+        }
       })
-      nomePaciente = paciente?.nome_completo || null
-      pacienteId = paciente?.id || null
+
+      if (paciente) {
+        nomePaciente = paciente.nome_completo
+        pacienteId = paciente.id
+        contextoHistorico = formatarContextoHistorico(paciente.historiaClinicaResumo)
+      }
     }
 
-    const { answer, completed, dadosEstruturados } = await chatWithOpenAI(message, nomePaciente, history || [])
+    // Chamar OpenAI com contexto histórico
+    const { answer, completed, dadosEstruturados } = await chatWithOpenAI(
+      message,
+      nomePaciente,
+      history || [],
+      contextoHistorico
+    )
 
     // Se a triagem foi concluída e temos dados estruturados, salvar no banco
     if (completed && dadosEstruturados && pacienteId) {
       try {
+        // Validar e sanitizar dados antes de salvar
+        const dadosValidados = validarESanitizarDados(dadosEstruturados)
+
         const historiaClinica = await historiaService.criarHistoriaClinica(
           pacienteId,
-          dadosEstruturados
+          dadosValidados
         )
 
         logger.info('História clínica salva automaticamente', {
@@ -64,10 +154,11 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
           historiaClinicaId: historiaClinica.id
         })
       } catch (err) {
-        // Log do erro mas não falha a resposta do chat
+        // Log detalhado do erro
         logger.error('Erro ao salvar história clínica automaticamente', err as Error, {
           pacienteId,
-          usuarioId: user.id
+          usuarioId: user.id,
+          dadosEstruturados: JSON.stringify(dadosEstruturados)
         })
 
         // Retornar resposta mesmo que falhe ao salvar

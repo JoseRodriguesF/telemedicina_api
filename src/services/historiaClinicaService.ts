@@ -79,9 +79,9 @@ export class HistoriaClinicaService {
      * Gera um texto consolidado unificando dados permanentes (sem queixa principal e sintomas)
      */
     private gerarResumoConsolidado(historias: any[]): string {
-        const doencas = new Set<string>();
-        const alergias = new Set<string>();
-        const medicamentos = new Set<string>();
+        const doencas = new Map<string, string>(); // normalized -> original
+        const alergias = new Map<string, string>();
+        const medicamentos = new Map<string, string>();
         const antecedentesFamiliares = new Map<string, Set<string>>();
         const estiloVidaMap = new Map<string, Set<string>>();
         const vacinacao = new Set<string>();
@@ -95,8 +95,16 @@ export class HistoriaClinicaService {
                 if (hp.doencas) {
                     const list = Array.isArray(hp.doencas) ? hp.doencas : [hp.doencas];
                     list.forEach((d: string) => {
-                        const clean = this.normalizeText(d);
-                        if (clean && !this.isNegative(clean)) doencas.add(clean);
+                        if (typeof d === 'string') {
+                            const clean = this.normalizeText(d);
+                            if (clean && !this.isNegative(clean)) {
+                                const normalized = this.normalizeForComparison(clean);
+                                // Só adiciona se não existir uma variação similar
+                                if (!this.hasSimilarKey(doencas, normalized)) {
+                                    doencas.set(normalized, this.capitalizeProper(clean));
+                                }
+                            }
+                        }
                     });
                 }
 
@@ -104,8 +112,15 @@ export class HistoriaClinicaService {
                 if (hp.alergias) {
                     const list = Array.isArray(hp.alergias) ? hp.alergias : [hp.alergias];
                     list.forEach((a: string) => {
-                        const clean = this.normalizeText(a);
-                        if (clean && !this.isNegative(clean)) alergias.add(clean);
+                        if (typeof a === 'string') {
+                            const clean = this.normalizeText(a);
+                            if (clean && !this.isNegative(clean)) {
+                                const normalized = this.normalizeForComparison(clean);
+                                if (!this.hasSimilarKey(alergias, normalized)) {
+                                    alergias.set(normalized, this.capitalizeProper(clean));
+                                }
+                            }
+                        }
                     });
                 }
 
@@ -113,15 +128,24 @@ export class HistoriaClinicaService {
                 if (hp.medicamentos) {
                     const list = Array.isArray(hp.medicamentos) ? hp.medicamentos : [hp.medicamentos];
                     list.forEach((m: string) => {
-                        const clean = this.normalizeText(m);
-                        if (clean && !this.isNegative(clean)) medicamentos.add(clean);
+                        if (typeof m === 'string') {
+                            const clean = this.normalizeText(m);
+                            if (clean && !this.isNegative(clean)) {
+                                const normalized = this.normalizeForComparison(clean);
+                                if (!this.hasSimilarKey(medicamentos, normalized)) {
+                                    medicamentos.set(normalized, this.capitalizeProper(clean));
+                                }
+                            }
+                        }
                     });
                 }
 
                 // Vacinação
                 if (hp.vacinacao) {
                     const clean = this.normalizeText(hp.vacinacao);
-                    if (clean && !this.isNegative(clean)) vacinacao.add(clean);
+                    if (clean && !this.isNegative(clean) && clean.toLowerCase() !== 'não coletado nesta triagem') {
+                        vacinacao.add(clean);
+                    }
                 }
             }
 
@@ -133,21 +157,21 @@ export class HistoriaClinicaService {
                         if (val && typeof val === 'string') {
                             const cleanKey = this.normalizeFieldName(key);
                             const cleanVal = this.normalizeText(val as string);
-                            if (cleanVal && !this.isNegative(cleanVal)) {
+                            if (cleanVal && !this.isNegative(cleanVal) && cleanVal.toLowerCase() !== 'nenhuma doença relevante relatada') {
                                 if (!antecedentesFamiliares.has(cleanKey)) {
                                     antecedentesFamiliares.set(cleanKey, new Set());
                                 }
-                                antecedentesFamiliares.get(cleanKey)!.add(cleanVal);
+                                antecedentesFamiliares.get(cleanKey)!.add(this.capitalizeProper(cleanVal));
                             }
                         }
                     });
                 } else if (typeof af === 'string') {
                     const clean = this.normalizeText(af);
-                    if (clean && !this.isNegative(clean)) {
+                    if (clean && !this.isNegative(clean) && clean.toLowerCase() !== 'nenhuma doença relevante relatada') {
                         if (!antecedentesFamiliares.has('Família')) {
                             antecedentesFamiliares.set('Família', new Set());
                         }
-                        antecedentesFamiliares.get('Família')!.add(clean);
+                        antecedentesFamiliares.get('Família')!.add(this.capitalizeProper(clean));
                     }
                 }
             }
@@ -160,21 +184,21 @@ export class HistoriaClinicaService {
                         if (val && typeof val === 'string') {
                             const normalizedKey = this.normalizeFieldName(key);
                             const cleanVal = this.normalizeText(val as string);
-                            if (cleanVal && !this.isNegative(cleanVal)) {
+                            if (cleanVal && !this.isNegative(cleanVal) && cleanVal.toLowerCase() !== 'não coletado nesta triagem') {
                                 if (!estiloVidaMap.has(normalizedKey)) {
                                     estiloVidaMap.set(normalizedKey, new Set());
                                 }
-                                estiloVidaMap.get(normalizedKey)!.add(cleanVal);
+                                estiloVidaMap.get(normalizedKey)!.add(this.capitalizeProper(cleanVal));
                             }
                         }
                     });
                 } else if (typeof ev === 'string') {
                     const clean = this.normalizeText(ev);
-                    if (clean && !this.isNegative(clean)) {
+                    if (clean && !this.isNegative(clean) && clean.toLowerCase() !== 'não coletado nesta triagem') {
                         if (!estiloVidaMap.has('Geral')) {
                             estiloVidaMap.set('Geral', new Set());
                         }
-                        estiloVidaMap.get('Geral')!.add(clean);
+                        estiloVidaMap.get('Geral')!.add(this.capitalizeProper(clean));
                     }
                 }
             }
@@ -186,13 +210,13 @@ export class HistoriaClinicaService {
         if (doencas.size > 0 || alergias.size > 0 || medicamentos.size > 0) {
             resumo += '### **HISTÓRICO MÉDICO PESSOAL**\n\n';
             if (doencas.size > 0) {
-                resumo += `**Doenças crônicas:** ${Array.from(doencas).join(', ')}\n\n`;
+                resumo += `**Doenças crônicas:** ${Array.from(doencas.values()).join(', ')}\n\n`;
             }
             if (medicamentos.size > 0) {
-                resumo += `**Medicamentos:** ${Array.from(medicamentos).join(', ')}\n\n`;
+                resumo += `**Medicamentos:** ${Array.from(medicamentos.values()).join(', ')}\n\n`;
             }
             if (alergias.size > 0) {
-                resumo += `**Alergias:** ${Array.from(alergias).join(', ')}\n\n`;
+                resumo += `**Alergias:** ${Array.from(alergias.values()).join(', ')}\n\n`;
             }
         }
 
@@ -219,8 +243,61 @@ export class HistoriaClinicaService {
     }
 
     /**
-     * Normaliza nomes de campos removendo underscores, acentos extras, etc
+     * Normaliza texto para comparação (remove acentos, pontuação, espaços extras)
      */
+    private normalizeForComparison(text: string): string {
+        return text
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+            .replace(/[^\w\s]/g, '') // Remove pontuação
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /**
+     * Verifica se já existe uma chave similar no Map (para evitar duplicatas)
+     */
+    private hasSimilarKey(map: Map<string, string>, key: string): boolean {
+        for (const existingKey of map.keys()) {
+            if (this.calculateSimilarity(key, existingKey) > 0.8) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Calcula similaridade entre duas strings usando Coeficiente de Jaccard
+     */
+    private calculateSimilarity(str1: string, str2: string): number {
+        const set1 = new Set(str1.split(' '));
+        const set2 = new Set(str2.split(' '));
+
+        const intersection = new Set([...set1].filter(x => set2.has(x)));
+        const union = new Set([...set1, ...set2]);
+
+        return union.size === 0 ? 0 : intersection.size / union.size;
+    }
+
+    /**
+     * Capitaliza adequadamente nomes de medicamentos e doenças
+     */
+    private capitalizeProper(text: string): string {
+        // Palavras que devem ficar em minúscula (exceto no início)
+        const lowercase = ['de', 'da', 'do', 'das', 'dos', 'e', 'a', 'o'];
+
+        return text
+            .split(' ')
+            .map((word, index) => {
+                const lower = word.toLowerCase();
+                if (index > 0 && lowercase.includes(lower)) {
+                    return lower;
+                }
+                return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+            })
+            .join(' ');
+    }
     private normalizeFieldName(fieldName: string): string {
         const map: Record<string, string> = {
             'exercicios': 'Atividade física',
@@ -266,8 +343,10 @@ export class HistoriaClinicaService {
      */
     private isNegative(text: string): boolean {
         const lower = text.toLowerCase().trim();
-        return /^(nenhum(a)?|não (tem|há|possui|usa|toma|informad[oa])|nega|sem dados?|n\/?a|nada)\.?$/i.test(lower) ||
-            lower.length < 2;
+        return /^(nenhum(a)?|não (tem|há|possui|usa|toma|informad[oa]|coletado)|nega|sem dados?|n\/?a|nada|ausente|nao tem|nao ha)\.?$/i.test(lower) ||
+            lower.length < 2 ||
+            lower === 'não coletado nesta triagem' ||
+            lower === 'nenhuma doença relevante relatada';
     }
 
 
