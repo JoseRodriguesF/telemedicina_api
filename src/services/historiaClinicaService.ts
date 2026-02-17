@@ -152,11 +152,21 @@ export class HistoriaClinicaService {
             // Antecedentes Familiares
             if (h.antecedentesFamiliares) {
                 const af = h.antecedentesFamiliares;
+                const members = ['Pai', 'Mãe', 'Avô', 'Avó', 'Irmão', 'Irmã', 'Tio', 'Tia', 'Família'];
+
                 if (typeof af === 'object' && !Array.isArray(af)) {
                     Object.entries(af).forEach(([key, val]) => {
                         if (val && typeof val === 'string') {
-                            const cleanKey = this.normalizeFieldName(key);
-                            const cleanVal = this.normalizeText(val as string);
+                            let cleanKey = this.normalizeFieldName(key);
+                            let cleanVal = this.normalizeText(val as string);
+
+                            // Inverter se a chave for uma doença e o valor for um integrante da família (ex: Diabetes: Avó -> Avó: Diabetes)
+                            if (members.includes(this.capitalizeFirst(cleanVal)) && !members.includes(this.capitalizeFirst(cleanKey))) {
+                                const temp = cleanKey;
+                                cleanKey = this.capitalizeFirst(cleanVal);
+                                cleanVal = temp;
+                            }
+
                             if (cleanVal && !this.isNegative(cleanVal) && cleanVal.toLowerCase() !== 'nenhuma doença relevante relatada') {
                                 if (!antecedentesFamiliares.has(cleanKey)) {
                                     antecedentesFamiliares.set(cleanKey, new Set());
@@ -260,7 +270,11 @@ export class HistoriaClinicaService {
      */
     private hasSimilarKey(map: Map<string, string>, key: string): boolean {
         for (const existingKey of map.keys()) {
-            if (this.calculateSimilarity(key, existingKey) > 0.8) {
+            // Se uma string contém a outra integralmente ou similaridade > 0.8
+            // Ex: "Roacutan" e "Roacutan 20mg"
+            const k1 = key.toLowerCase();
+            const k2 = existingKey.toLowerCase();
+            if (k1.includes(k2) || k2.includes(k1) || this.calculateSimilarity(key, existingKey) > 0.8) {
                 return true;
             }
         }
@@ -305,19 +319,41 @@ export class HistoriaClinicaService {
             'atividade_físic': 'Atividade física',
             'atividadefisica': 'Atividade física',
             'atividade física': 'Atividade física',
+            'atividade fisica': 'Atividade física',
+            'exercicio fisico': 'Atividade física',
+            'exercicio': 'Atividade física',
             'alcool': 'Álcool',
             'álcool': 'Álcool',
+            'bebida': 'Álcool',
             'tabagismo': 'Tabagismo',
+            'fumo': 'Tabagismo',
+            'cigarro': 'Tabagismo',
+            'fumante': 'Tabagismo',
             'diabetes': 'Diabetes',
             'diabetes_tipo': 'Diabetes',
+            'hipertensao': 'Hipertensão',
+            'pressao_alta': 'Hipertensão',
+            'pressao alta': 'Hipertensão',
             'avô': 'Avô',
             'avó': 'Avó',
             'avo': 'Avô',
+            'mae': 'Mãe',
+            'mãe': 'Mãe',
+            'pai': 'Pai',
+            'irmao': 'Irmão',
+            'irmão': 'Irmão',
+            'irma': 'Irmã',
+            'irmã': 'Irmã',
+            'tio': 'Tio',
+            'tia': 'Tia',
             'colesterol_alto': 'Colesterol alto',
             'colesterol alto': 'Colesterol alto',
+            'colesterol': 'Colesterol alto',
             'alimentacao': 'Alimentação',
             'alimentação': 'Alimentação',
-            'estilo_de_vida': 'Geral'
+            'dieta': 'Alimentação',
+            'estilo_de_vida': 'Geral',
+            'estilo de vida': 'Geral'
         };
 
         const lower = fieldName.toLowerCase().trim().replace(/_/g, ' ');
@@ -335,7 +371,7 @@ export class HistoriaClinicaService {
         if (!text) return '';
         return text.trim()
             .replace(/\s+/g, ' ')
-            .replace(/^(Alergia|Medicamento|Doença):\s*/i, '');
+            .replace(/^(Alergia|Medicamento|Doença|Hábito):\s*/i, '');
     }
 
     /**
@@ -343,9 +379,10 @@ export class HistoriaClinicaService {
      */
     private isNegative(text: string): boolean {
         const lower = text.toLowerCase().trim();
-        return /^(nenhum(a)?|não (tem|há|possui|usa|toma|informad[oa]|coletado)|nega|sem dados?|n\/?a|nada|ausente|nao tem|nao ha)\.?$/i.test(lower) ||
+        return /^(nenhum(a)?|não (tem|há|possui|usa|toma|informad[oa]|coletado|fuma)|nega|sem dados?|n\/?a|nada|ausente|nao tem|nao ha|nao fuma|não|nao)\.?$/i.test(lower) ||
             lower.length < 2 ||
-            lower === 'não coletado nesta triagem' ||
+            lower.includes('não coletado') ||
+            lower.includes('não informado') ||
             lower === 'nenhuma doença relevante relatada';
     }
 
