@@ -257,16 +257,16 @@ export async function chatWithOpenAI(
   let dadosEstruturados = null
 
   // Tentar encontrar um JSON no formato esperado
-  // Busca por algo que comece com { e termine com } no final da string
-  const jsonMatch = answer.match(/(\{[\s\S]*\})\s*$/);
+  // Busca pelo primeiro { e o último } para extrair o bloco JSON
+  const jsonMatch = answer.match(/(\{[\s\S]*\})/);
 
   if (jsonMatch) {
     try {
-      const potencialJSon = jsonMatch[1];
+      const potencialJSon = jsonMatch[0];
       // Verificar se contém campos chave para confirmar que é o nosso JSON de triagem
       if (potencialJSon.includes('"queixa_principal"') || potencialJSon.includes('"conteudo"')) {
         dadosEstruturados = JSON.parse(potencialJSon);
-        console.log('[DEBUG] Dados estruturados capturados com sucesso (com ou sem etiqueta)');
+        console.log('[DEBUG] Dados estruturados capturados com sucesso');
       }
     } catch (err) {
       console.warn('[DEBUG] Texto similar a JSON encontrado, mas inválido:', err);
