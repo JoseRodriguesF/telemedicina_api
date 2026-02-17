@@ -180,36 +180,39 @@ export class HistoriaClinicaService {
             }
         });
 
-        // Montar o texto final
+        // Montar o texto final em formato markdown profissional
         let resumo = '';
 
         if (doencas.size > 0 || alergias.size > 0 || medicamentos.size > 0) {
-            resumo += 'HISTÓRICO MÉDICO PESSOAL\n';
-            if (doencas.size > 0) resumo += `Doenças crônicas: ${Array.from(doencas).join(', ')}\n`;
-            if (medicamentos.size > 0) resumo += `Medicamentos: ${Array.from(medicamentos).join(', ')}\n`;
-            if (alergias.size > 0) resumo += `Alergias: ${Array.from(alergias).join(', ')}\n`;
-            resumo += '\n';
+            resumo += '### **HISTÓRICO MÉDICO PESSOAL**\n\n';
+            if (doencas.size > 0) {
+                resumo += `**Doenças crônicas:** ${Array.from(doencas).join(', ')}\n\n`;
+            }
+            if (medicamentos.size > 0) {
+                resumo += `**Medicamentos:** ${Array.from(medicamentos).join(', ')}\n\n`;
+            }
+            if (alergias.size > 0) {
+                resumo += `**Alergias:** ${Array.from(alergias).join(', ')}\n\n`;
+            }
         }
 
         if (antecedentesFamiliares.size > 0) {
-            resumo += 'ANTECEDENTES FAMILIARES\n';
+            resumo += '### **ANTECEDENTES FAMILIARES**\n\n';
             antecedentesFamiliares.forEach((values, key) => {
-                resumo += `${key}: ${Array.from(values).join(', ')}\n`;
+                resumo += `**${key}:** ${Array.from(values).join(', ')}\n\n`;
             });
-            resumo += '\n';
         }
 
         if (estiloVidaMap.size > 0) {
-            resumo += 'ESTILO DE VIDA\n';
+            resumo += '### **ESTILO DE VIDA**\n\n';
             estiloVidaMap.forEach((values, key) => {
-                resumo += `${key}: ${Array.from(values).join(', ')}\n`;
+                resumo += `**${key}:** ${Array.from(values).join(', ')}\n\n`;
             });
-            resumo += '\n';
         }
 
         if (vacinacao.size > 0) {
-            resumo += 'VACINAÇÃO\n';
-            resumo += `${Array.from(vacinacao).join(', ')}\n`;
+            resumo += '### **VACINAÇÃO**\n\n';
+            resumo += `${Array.from(vacinacao).join(', ')}\n\n`;
         }
 
         return resumo.trim();
