@@ -256,20 +256,56 @@ export async function chatWithOpenAI(
 
   let dadosEstruturados = null
 
-  // Tentar encontrar um JSON no formato esperado
-  // Busca pelo primeiro { e o último } para extrair o bloco JSON
-  const jsonMatch = answer.match(/(\{[\s\S]*\})/);
-
-  if (jsonMatch) {
-    try {
-      const potencialJSon = jsonMatch[0];
-      // Verificar se contém campos chave para confirmar que é o nosso JSON de triagem
-      if (potencialJSon.includes('"queixa_principal"') || potencialJSon.includes('"conteudo"')) {
-        dadosEstruturados = JSON.parse(potencialJSon);
-        console.log('[DEBUG] Dados estruturados capturados com sucesso');
+  // Tentar encontrar um JSON no formato esperado (robustez: múltiplas tentativas)
+  const jsonMatches = answer.match(/\{[\s\S]*\}/g);
+  if (jsonMatches) {
+    for (const potencialJSon of jsonMatches) {
+      try {
+        const parsed = JSON.parse(potencialJSon);
+        const hasQueixa = typeof parsed === 'object' && (
+          'queixa_principal' in parsed ||
+          'queixaPrincipal' in parsed ||
+          'conteudo' in parsed
+        );
+        if (hasQueixa) {
+          // Normalizar camelCase para snake_case se necessário
+          dadosEstruturados = parsed;
+          break;
+        }
+      } catch {
+        continue;
       }
-    } catch (err) {
-      console.warn('[DEBUG] Texto similar a JSON encontrado, mas inválido:', err);
+    }
+  }
+
+  // Fallback: buscar bloco entre [DADOS_ESTRUTURADOS] e fim (se a IA usar esse marcador)
+  if (!dadosEstruturados && answer.includes('[DADOS_ESTRUTURADOS]')) {
+    const afterMarker = answer.split('[DADOS_ESTRUTURADOS]')[1];
+    const fallbackMatch = afterMarker?.match(/(\{[\s\S]*\})/);
+    if (fallbackMatch) {
+      try {
+        const parsed = JSON.parse(fallbackMatch[0]);
+        if (typeof parsed === 'object' && ('conteudo' in parsed || 'queixa_principal' in parsed)) {
+          dadosEstruturados = parsed;
+        }
+      } catch {
+        /* ignorar */
+      }
+    }
+  }
+
+  // Fallback: JSON dentro de code block ```json ... ``` ou ``` ... ```
+  if (!dadosEstruturados) {
+    const codeBlockMatch = answer.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (codeBlockMatch) {
+      try {
+        const parsed = JSON.parse(codeBlockMatch[1].trim());
+        if (typeof parsed === 'object' && ('conteudo' in parsed || 'queixa_principal' in parsed || 'queixaPrincipal' in parsed)) {
+          dadosEstruturados = parsed;
+        }
+      } catch {
+        /* ignorar */
+      }
     }
   }
 

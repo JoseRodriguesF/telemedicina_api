@@ -15,10 +15,32 @@ interface ChatBody {
 /**
  * Valida e sanitiza os dados estruturados retornados pela IA
  */
+function normalizarCamelCaseParaSnake(obj: any): any {
+  if (obj === null || obj === undefined) return obj
+  if (Array.isArray(obj)) return obj
+  if (typeof obj !== 'object') return obj
+  const map: Record<string, string> = {
+    queixaPrincipal: 'queixa_principal',
+    descricaoSintomas: 'descricao_sintomas',
+    historicoPessoal: 'historico_pessoal',
+    antecedentesFamiliares: 'antecedentes_familiares',
+    estiloVida: 'estilo_vida',
+    vacinacao: 'vacinacao'
+  }
+  const out: any = {}
+  for (const [k, v] of Object.entries(obj)) {
+    const key = map[k] || k
+    out[key] = typeof v === 'object' && v !== null && !Array.isArray(v) ? normalizarCamelCaseParaSnake(v) : v
+  }
+  return out
+}
+
 function validarESanitizarDados(dados: any): any {
   if (!dados || typeof dados !== 'object') {
     throw new Error('Dados estruturados inválidos')
   }
+
+  dados = normalizarCamelCaseParaSnake(dados)
 
   // Garantir que historico_pessoal seja um objeto com arrays
   if (dados.historico_pessoal) {
