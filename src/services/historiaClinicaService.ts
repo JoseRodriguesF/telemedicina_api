@@ -31,18 +31,25 @@ export class HistoriaClinicaService {
             }
 
 
+            // Garantir que todos os campos de texto sejam string antes de salvar (evitar text.trim is not a function)
+            const safeStr = (v: any) => (v != null ? String(v).trim() : '')
+            const conteudo = safeStr(dados.conteudo)
+            const queixaPrincipal = safeStr(dados.queixa_principal)
+            const descricaoSintomas = safeStr(dados.descricao_sintomas)
+            const vacinacaoVal = dados.vacinacao != null ? String(dados.vacinacao).trim() : undefined
+
             const historiaClinica = await prisma.historiaClinica.create({
                 data: {
                     pacienteId,
-                    queixaPrincipal: dados.queixa_principal ?? "",
-                    descricaoSintomas: dados.descricao_sintomas ?? "",
+                    queixaPrincipal,
+                    descricaoSintomas,
                     historicoPessoal: {
                         ...(typeof dados.historico_pessoal === 'object' ? dados.historico_pessoal : { original: dados.historico_pessoal }),
-                        vacinacao: dados.vacinacao
+                        vacinacao: vacinacaoVal
                     } as any,
                     antecedentesFamiliares: dados.antecedentes_familiares ?? {},
                     estiloVida: dados.estilo_vida ?? {},
-                    conteudo: dados.conteudo,
+                    conteudo,
                     status: 'completo'
                 }
             })
@@ -253,10 +260,12 @@ export class HistoriaClinicaService {
     }
 
     /**
-     * Normaliza texto para comparação (remove acentos, pontuação, espaços extras)
+     * Normaliza texto para comparação (remove acentos, pontuação, espaços extras).
+     * Aceita qualquer tipo e converte para string antes de usar.
      */
-    private normalizeForComparison(text: string): string {
-        return text
+    private normalizeForComparison(text: any): string {
+        const s = text != null && typeof text === 'string' ? text : String(text ?? '');
+        return s
             .toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '') // Remove acentos
@@ -356,7 +365,8 @@ export class HistoriaClinicaService {
             'estilo de vida': 'Geral'
         };
 
-        const lower = fieldName.toLowerCase().trim().replace(/_/g, ' ');
+        const s = fieldName != null && typeof fieldName === 'string' ? fieldName : String(fieldName ?? '');
+        const lower = s.toLowerCase().trim().replace(/_/g, ' ');
         return map[lower] || this.capitalizeFirst(lower);
     }
 
@@ -365,20 +375,24 @@ export class HistoriaClinicaService {
     }
 
     /**
-     * Normaliza texto removendo espaços extras e prefixos
+     * Normaliza texto removendo espaços extras e prefixos.
+     * Aceita qualquer tipo e converte para string antes de .trim() (evita "trim is not a function").
      */
-    private normalizeText(text: string): string {
-        if (!text) return '';
-        return text.trim()
+    private normalizeText(text: any): string {
+        if (text == null) return '';
+        const s = typeof text === 'string' ? text : String(text);
+        return s.trim()
             .replace(/\s+/g, ' ')
             .replace(/^(Alergia|Medicamento|Doença|Hábito):\s*/i, '');
     }
 
     /**
-     * Verifica se o texto indica ausência/negação
+     * Verifica se o texto indica ausência/negação.
+     * Aceita qualquer tipo e converte para string antes de .trim().
      */
-    private isNegative(text: string): boolean {
-        const lower = text.toLowerCase().trim();
+    private isNegative(text: any): boolean {
+        const s = text != null && typeof text === 'string' ? text : String(text ?? '');
+        const lower = s.toLowerCase().trim();
         return /^(nenhum(a)?|não (tem|há|possui|usa|toma|informad[oa]|coletado|fuma)|nega|sem dados?|n\/?a|nada|ausente|nao tem|nao ha|nao fuma|não|nao)\.?$/i.test(lower) ||
             lower.length < 2 ||
             lower.includes('não coletado') ||

@@ -85,10 +85,12 @@ function validarESanitizarDados(dados: any): any {
     dados.estilo_vida = {}
   }
 
-  // Garantir que conteudo exista e seja string
-  if (!dados.conteudo || typeof dados.conteudo !== 'string') {
+  // Garantir que conteudo exista e seja string (evitar text.trim is not a function)
+  const rawConteudo = dados.conteudo
+  if (rawConteudo == null || (typeof rawConteudo !== 'string' && typeof rawConteudo !== 'number')) {
     throw new Error('Campo conteudo é obrigatório')
   }
+  dados.conteudo = String(rawConteudo).trim()
 
   return dados
 }
