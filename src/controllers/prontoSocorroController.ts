@@ -249,7 +249,7 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
       orderBy: { createdAt: 'desc' },
       include: {
         medico: { select: { nome_completo: true } },
-        paciente: { select: { nome_completo: true } },
+        paciente: { select: { nome_completo: true, cpf: true } },
         prescricoes: true,
         historiaClinica: true
       }
@@ -314,15 +314,27 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
       searchTerm
     })
   } else if (user.tipo_usuario === 'medico' && profileMedicoId) {
-    // Médico busca por nome do paciente
+    // Médico busca por nome OU CPF do paciente
     where.medicoId = profileMedicoId
-    where.paciente = {
-      nome_completo: {
-        contains: searchTerm,
-        mode: 'insensitive'
+    where.OR = [
+      {
+        paciente: {
+          nome_completo: {
+            contains: searchTerm,
+            mode: 'insensitive'
+          }
+        }
+      },
+      {
+        paciente: {
+          cpf: {
+            contains: searchTerm.replace(/\D/g, ''),
+            mode: 'insensitive'
+          }
+        }
       }
-    }
-    logger.debug('Busca de médico por paciente', {
+    ]
+    logger.debug('Busca de médico por paciente (nome ou CPF)', {
       medicoId: profileMedicoId,
       searchTerm
     })
@@ -344,7 +356,7 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
       orderBy: { createdAt: 'desc' },
       include: {
         medico: { select: { nome_completo: true } },
-        paciente: { select: { nome_completo: true } },
+        paciente: { select: { nome_completo: true, cpf: true } },
         prescricoes: true
       }
     })
