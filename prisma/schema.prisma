@@ -101,6 +101,11 @@ model Consulta {
   diagnostico       String?
   evolucao          String?
   plano_terapeutico String?           @map("plano_terapeutico")
+  especialidade_seguimento String?    @map("especialidade_seguimento")
+  ambulancia_endereco     String?    @map("ambulancia_endereco")
+  ambulancia_complemento  String?    @map("ambulancia_complemento")
+  ambulancia_info         String?    @map("ambulancia_info")
+  ambulancia_telefone     String?    @map("ambulancia_telefone")
   avaliacao         String?
   estrelas          Int?
   medico            Medico?           @relation("ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)

@@ -106,13 +106,7 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(id)
   Rooms.end(roomId)
 
-  const { hora_fim, repouso, destino_final, diagnostico, evolucao, plano_terapeutico, endereco_ambulancia } = (req.body as any) || {}
-
-  // Concatenar dados da ambulância na evolução se existirem, já que a consulta não tem campos próprios no momento
-  let finalEvolucao = evolucao;
-  if (endereco_ambulancia && (String(destino_final).toLowerCase().includes('ambulância') || String(destino_final).toLowerCase().includes('ambulancia'))) {
-    finalEvolucao = `${evolucao}\n\n--- DADOS PARA AMBULÂNCIA ---\nEndereço: ${endereco_ambulancia.endereco || '-'}\nComplemento: ${endereco_ambulancia.complemento || '-'}\nTelefone: ${endereco_ambulancia.telefone || '-'}\nInformações: ${endereco_ambulancia.informacoes_adicionais || '-'}`;
-  }
+  const { hora_fim, repouso, destino_final, especialidade_seguimento, diagnostico, evolucao, plano_terapeutico, endereco_ambulancia } = (req.body as any) || {}
 
   await prisma.consulta.update({
     where: { id },
@@ -122,8 +116,13 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
       repouso,
       destino_final,
       diagnostico,
-      evolucao: finalEvolucao,
-      plano_terapeutico
+      evolucao,
+      plano_terapeutico,
+      especialidade_seguimento,
+      ambulancia_endereco: endereco_ambulancia?.endereco,
+      ambulancia_complemento: endereco_ambulancia?.complemento,
+      ambulancia_info: endereco_ambulancia?.informacoes_adicionais,
+      ambulancia_telefone: endereco_ambulancia?.telefone
     }
   })
   return reply.send({ ok: true })
