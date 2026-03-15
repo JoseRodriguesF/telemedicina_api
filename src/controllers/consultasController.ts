@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client'
 import {
   getConsultaById,
   getConsultaWithPatient,
@@ -123,7 +124,7 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
       ambulancia_complemento: endereco_ambulancia?.complemento,
       ambulancia_info: endereco_ambulancia?.informacoes_adicionais,
       ambulancia_telefone: endereco_ambulancia?.telefone
-    }
+    } as Prisma.ConsultaUpdateInput
   })
   return reply.send({ ok: true })
 }
