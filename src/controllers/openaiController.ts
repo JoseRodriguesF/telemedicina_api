@@ -83,10 +83,12 @@ function validarESanitizarDados(dados: any): any {
   }
 
   const rawConteudo = dados.conteudo
-  if (rawConteudo == null || (typeof rawConteudo !== 'string' && typeof rawConteudo !== 'number')) {
-    throw new Error('Campo conteudo é obrigatório')
+  if (rawConteudo == null || (typeof rawConteudo !== 'string' && typeof rawConteudo !== 'number') || String(rawConteudo).trim() === '') {
+    // Fallback caso a IA esqueça o conteúdo estruturado
+    dados.conteudo = `### **TRIAGEM CONCLUÍDA**\n\n**Queixa Principal:** ${dados.queixa_principal || 'Não informada'}\n**Sintomas:** ${dados.descricao_sintomas || 'Não informados'}`
+  } else {
+    dados.conteudo = String(rawConteudo).trim()
   }
-  dados.conteudo = String(rawConteudo).trim()
 
   return dados
 }
