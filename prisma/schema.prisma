@@ -112,11 +112,25 @@ model Consulta {
   paciente          Paciente          @relation("ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
   historiaClinica   HistoriaClinica[]
   prescricoes       Prescricao[]
+  anexos            ConsultaAnexo[]
 
   @@index([medicoId], map: "idx_consultas_medico_id")
   @@index([pacienteId], map: "idx_consultas_paciente_id")
   @@index([medicoId, pacienteId], map: "idx_consultas_medico_paciente")
   @@map("consultas")
+}
+
+model ConsultaAnexo {
+  id         Int      @id @default(autoincrement())
+  consultaId Int      @map("consulta_id")
+  arquivo    Bytes    @map("arquivo")
+  tipo_mime  String   @map("tipo_mime") @db.VarChar(100)
+  nome       String?  @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at")
+  consulta   Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+
+  @@index([consultaId], map: "idx_consulta_anexos_consulta_id")
+  @@map("consulta_anexos")
 }
 
 model HistoriaClinica {

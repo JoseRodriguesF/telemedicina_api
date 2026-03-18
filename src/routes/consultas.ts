@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify'
 import { createOrGetRoom, endConsulta, listParticipants, joinRoom, createRoomSimple, listConsultasAgendadas, listMedicos, agendarConsulta, confirmarConsulta, cancelarConsulta, getConsultaDetails, avaliarConsulta, updatePacienteNotas } from '../controllers/consultasController'
+import { salvarAnexos, listarAnexos, getAnexoConteudo } from '../controllers/anexosController'
 import { authenticateJWT } from '../middlewares/auth'
 
 export default async function consultasRoutes(fastify: FastifyInstance) {
@@ -19,4 +20,11 @@ export default async function consultasRoutes(fastify: FastifyInstance) {
   fastify.post('/consultas/:id/end', { preHandler: authenticateJWT }, endConsulta as any)
   fastify.post('/consultas/:id/avaliacao', { preHandler: authenticateJWT }, avaliarConsulta as any)
   fastify.patch('/consultas/:id/paciente/notas', { preHandler: authenticateJWT }, updatePacienteNotas as any)
+
+  // Anexos (arquivos do paciente)
+  fastify.post('/consultas/:id/anexos', { preHandler: authenticateJWT }, salvarAnexos as any)
+  fastify.get('/consultas/:id/anexos', { preHandler: authenticateJWT }, listarAnexos as any)
+  fastify.get('/consultas/anexos/:id/arquivo', { preHandler: authenticateJWT }, getAnexoConteudo as any)
 }
+
+
