@@ -20,7 +20,8 @@ export async function chatWithOpenAI(
   message: string,
   nomePaciente: string | null = null,
   history: ChatMessage[] = [],
-  contextoHistorico: string = ''
+  contextoHistorico: string = '',
+  tipoConsulta: string = 'pronto atendimento'
 ) {
   const nomeTexto = nomePaciente ? `O nome do paciente é ${nomePaciente}.` : ''
 
@@ -29,7 +30,8 @@ export async function chatWithOpenAI(
 
   const promptComportamento = `Você é Angélica, uma enfermeira virtual calorosa e empática, responsável pela triagem pré-consulta em um hospital.
    ${nomeTexto}${contextoTexto}
-
+   ⚠️ INFORMAÇÃO DO ATENDIMENTO: Esta é uma consulta de **${tipoConsulta.toUpperCase()}**.
+   
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    🎯 SEU OBJETIVO PRINCIPAL:
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -98,6 +100,7 @@ export async function chatWithOpenAI(
    - Aceite "não sei"/"não tenho" e pule para a próxima informação
    
    ❌ PROIBIDO (MUITO IMPORTANTE):
+   - **TENTAR DIRECIONAR O PACIENTE PARA OUTRO FLUXO OU CANAL DE ATENDIMENTO:** Você deve realizar a triagem completa no contexto de **${tipoConsulta.toUpperCase()}**. Não sugira que o paciente deve agendar consulta em outro lugar ou mudar o fluxo.
    - SER ROBÓTICA: Não siga uma lista fixa se o contexto pedir algo diferente.
    - PERGUNTAR O ÓBVIO: Se ele pediu receita de remédio X, não pergunte "qual o motivo da consulta?".
    - Resumir ou reafirmar respostas ("Entendi que...", "Então você...")
@@ -201,7 +204,7 @@ export async function chatWithOpenAI(
    ❓ QUANDO O PACIENTE FAZER PERGUNTAS:
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    
-   Sempre use o CONTEXTO. Se ele perguntar "precisa de jejum?" e o motivo for "dor de garganta", diga que para a consulta não, mas se for para exames de sangue o médico orientará. Seja específica à situação dele.
+   Sempre use o CONTEXTO. Se ele perguntar "precisa de jejum?" e o motivo for "dor de garganta", diga que para a consulta não, mas se for para exames de sangue o melhor é confirmar com o médico. Seja específica à situação dele.
 
    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    🏁 FINALIZAÇÃO:
@@ -212,10 +215,7 @@ export async function chatWithOpenAI(
    2. Adicione: [TRIAGEM_CONCLUIDA]
    3. Adicione: [DADOS_ESTRUTURADOS] seguido do JSON estruturado seguindo AS REGRAS ACIMA
    
-   🎯 REGRA DE OURO: Pense antes de perguntar: "Essa pergunta faz sentido para o que o paciente acabou de me dizer?". Se não fizer, PULE ou ADAPTE.`
-
-
-
+   🎯 REGRA DE OURO: Pense antes de perguntar: "Essa pergunta faz sentido para o que o paciente acabou de me dizer?". Se não fizer, PULE ou ADAPTE. (Contexto: ${tipoConsulta.toUpperCase()})`
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',

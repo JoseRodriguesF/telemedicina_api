@@ -10,6 +10,7 @@ const historiaService = new HistoriaClinicaService()
 interface ChatBody {
   message: string
   history?: ChatMessage[]
+  tipoConsulta?: string
 }
 
 interface ConfirmTriagemBody {
@@ -107,7 +108,7 @@ function formatarContextoHistorico(resumo: string | null): string {
  */
 export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody }>, reply: FastifyReply) {
   try {
-    const { message, history = [] } = req.body
+    const { message, history = [], tipoConsulta = 'pronto atendimento' } = req.body
 
     if (!message || typeof message !== 'string') {
       return reply.code(400).send({ error: 'message é obrigatório e deve ser string' })
@@ -145,7 +146,8 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
       message,
       nomePaciente,
       history || [],
-      contextoHistorico
+      contextoHistorico,
+      tipoConsulta
     )
 
     // Triagem concluída: retornar dados para confirmação do paciente.
