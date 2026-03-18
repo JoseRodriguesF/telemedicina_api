@@ -301,15 +301,18 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
   let where: any = {}
 
   if (user.tipo_usuario === 'paciente' && profilePacienteId) {
-    // Paciente busca por nome do médico
+    // Paciente busca por nome do médico (aproximada por partes)
+    const nameParts = searchTerm.split(' ').filter(part => part.length > 0)
     where.pacienteId = profilePacienteId
     where.medico = {
-      nome_completo: {
-        contains: searchTerm,
-        mode: 'insensitive'
-      }
+      AND: nameParts.map(part => ({
+        nome_completo: {
+          contains: part,
+          mode: 'insensitive' as const
+        }
+      }))
     }
-    logger.debug('Busca de paciente por médico', {
+    logger.debug('Busca de paciente por médico (partes)', {
       pacienteId: profilePacienteId,
       searchTerm
     })
@@ -327,25 +330,17 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
         searchTerm: where.paciente.cpf
       })
     } else {
-      where.OR = [
-        {
-          paciente: {
-            nome_completo: {
-              contains: searchTerm,
-              mode: 'insensitive'
-            }
+      // Busca aproximada por partes do nome do paciente
+      const nameParts = searchTerm.split(' ').filter(part => part.length > 0)
+      where.paciente = {
+        AND: nameParts.map(part => ({
+          nome_completo: {
+            contains: part,
+            mode: 'insensitive' as const
           }
-        },
-        {
-          paciente: {
-            cpf: {
-              contains: searchTerm.replace(/\D/g, ''),
-              mode: 'insensitive'
-            }
-          }
-        }
-      ]
-      logger.debug('Busca de médico por paciente (nome ou CPF)', {
+        }))
+      }
+      logger.debug('Busca de médico por paciente (partes do nome)', {
         medicoId: profileMedicoId,
         searchTerm
       })
