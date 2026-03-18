@@ -271,7 +271,7 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
   const user = req.user as AuthenticatedUser
   if (!user) return reply.code(401).send({ error: 'unauthorized' })
 
-  const { q } = req.query as { q?: string }
+  const { q, type } = req.query as { q?: string; type?: string }
 
   logger.info('searchHistoricoCompleto chamado', {
     userId: user.id,
@@ -316,28 +316,40 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
   } else if (user.tipo_usuario === 'medico' && profileMedicoId) {
     // Médico busca por nome OU CPF do paciente
     where.medicoId = profileMedicoId
-    where.OR = [
-      {
-        paciente: {
-          nome_completo: {
-            contains: searchTerm,
-            mode: 'insensitive'
-          }
-        }
-      },
-      {
-        paciente: {
-          cpf: {
-            contains: searchTerm.replace(/\D/g, ''),
-            mode: 'insensitive'
-          }
-        }
+
+    if (type === 'cpf') {
+      // Busca precisa por CPF se solicitado explicitamente (Front-end envia type=cpf)
+      where.paciente = {
+        cpf: searchTerm.replace(/\D/g, '')
       }
-    ]
-    logger.debug('Busca de médico por paciente (nome ou CPF)', {
-      medicoId: profileMedicoId,
-      searchTerm
-    })
+      logger.info('Busca precisa de médico por CPF do paciente', {
+        medicoId: profileMedicoId,
+        searchTerm: where.paciente.cpf
+      })
+    } else {
+      where.OR = [
+        {
+          paciente: {
+            nome_completo: {
+              contains: searchTerm,
+              mode: 'insensitive'
+            }
+          }
+        },
+        {
+          paciente: {
+            cpf: {
+              contains: searchTerm.replace(/\D/g, ''),
+              mode: 'insensitive'
+            }
+          }
+        }
+      ]
+      logger.debug('Busca de médico por paciente (nome ou CPF)', {
+        medicoId: profileMedicoId,
+        searchTerm
+      })
+    }
   } else {
     // Tipo de usuário inválido ou sem permissão
     logger.warn('Tipo de usuário inválido para busca', {

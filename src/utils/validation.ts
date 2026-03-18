@@ -13,7 +13,14 @@ export const endConsultaSchema = z.object({
     destino_final: z.string().optional(),
     diagnostico: z.string().optional(),
     evolucao: z.string().optional(),
-    plano_terapeutico: z.string().optional()
+    plano_terapeutico: z.string().optional(),
+    especialidade_seguimento: z.string().optional(),
+    endereco_ambulancia: z.object({
+        endereco: z.string().optional(),
+        complemento: z.string().optional(),
+        informacoes_adicionais: z.string().optional(),
+        telefone: z.string().optional()
+    }).optional()
 })
 
 export const avaliarConsultaSchema = z.object({
