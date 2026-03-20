@@ -219,7 +219,7 @@ export async function chatWithOpenAI(
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
-    temperature: 0.1,
+    temperature: 0.0,
     messages: [
       { role: 'system', content: promptComportamento },
       // histórico enviado pelo frontend (mantém contexto apenas durante a sessão)
