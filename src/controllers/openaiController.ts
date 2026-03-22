@@ -108,7 +108,7 @@ function formatarContextoHistorico(resumo: string | null): string {
  */
 export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody }>, reply: FastifyReply) {
   try {
-    const { message, history = [], tipoConsulta = 'pronto atendimento' } = req.body
+    const { message, history = [] } = req.body
 
     if (!message || typeof message !== 'string') {
       return reply.code(400).send({ error: 'message é obrigatório e deve ser string' })
@@ -146,8 +146,7 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
       message,
       nomePaciente,
       history || [],
-      contextoHistorico,
-      tipoConsulta
+      contextoHistorico
     )
 
     // Triagem concluída: retornar dados para confirmação do paciente.
