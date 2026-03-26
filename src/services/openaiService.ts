@@ -251,55 +251,62 @@ export async function chatWithOpenAI(
 
   let dadosEstruturados = null
 
-  // Tentar encontrar um JSON no formato esperado (robustez: múltiplas tentativas)
-  const jsonMatches = answer.match(/\{[\s\S]*\}/g);
-  if (jsonMatches) {
-    for (const potencialJSon of jsonMatches) {
-      try {
-        const parsed = JSON.parse(potencialJSon);
-        const hasQueixa = typeof parsed === 'object' && (
-          'queixa_principal' in parsed ||
-          'queixaPrincipal' in parsed ||
-          'conteudo' in parsed
-        );
-        if (hasQueixa) {
-          // Normalizar camelCase para snake_case se necessário
-          dadosEstruturados = parsed;
+  // Função auxiliar para tentar extrair e parsear JSON de uma string
+  const tryParseJson = (str: string): any => {
+    try {
+      // Limpeza básica para lidar com possíveis markdown ou caracteres invisíveis
+      const clean = str.trim().replace(/^```json\s*|```$/g, '');
+      const parsed = JSON.parse(clean);
+      if (typeof parsed === 'object' && parsed !== null) {
+        // Validação básica se parece com o nosso objeto de triagem
+        if ('queixa_principal' in parsed || 'queixaPrincipal' in parsed || 'conteudo' in parsed) {
+          return parsed;
+        }
+      }
+    } catch {
+      return null;
+    }
+  };
+
+  // 1. Tentar encontrar JSON em blocos de código markdown (mais comum e seguro)
+  const codeBlockMatches = answer.match(/```(?:json)?\s*([\s\S]*?)```/g);
+  if (codeBlockMatches) {
+    for (const block of codeBlockMatches) {
+      const result = tryParseJson(block);
+      if (result) {
+        dadosEstruturados = result;
+        break;
+      }
+    }
+  }
+
+  // 2. Se falhar, tentar buscar entre [DADOS_ESTRUTURADOS] e o fim
+  if (!dadosEstruturados && answer.includes('[DADOS_ESTRUTURADOS]')) {
+    const parts = answer.split('[DADOS_ESTRUTURADOS]');
+    const candidate = parts[parts.length - 1]; // Pega a parte após o último marcador
+    dadosEstruturados = tryParseJson(candidate);
+    
+    // Fallback agressivo dentro do marcador: tentar encontrar o que está entre { e }
+    if (!dadosEstruturados) {
+      const jsonInMarker = candidate.match(/\{[\s\S]*\}/);
+      if (jsonInMarker) {
+        dadosEstruturados = tryParseJson(jsonInMarker[0]);
+      }
+    }
+  }
+
+  // 3. Fallback genérico: buscar o ÚLTIMO bloco de chaves no texto todo (muitas vezes a IA cospe no final)
+  if (!dadosEstruturados) {
+    // Busca todas as ocorrências de conteúdo entre chaves
+    const allJsonLike = answer.match(/\{[\s\S]*?\}/g);
+    if (allJsonLike) {
+      // Tenta do último para o primeiro (maior probabilidade de ser o JSON final)
+      for (let i = allJsonLike.length - 1; i >= 0; i--) {
+        const result = tryParseJson(allJsonLike[i]);
+        if (result) {
+          dadosEstruturados = result;
           break;
         }
-      } catch {
-        continue;
-      }
-    }
-  }
-
-  // Fallback: buscar bloco entre [DADOS_ESTRUTURADOS] e fim (se a IA usar esse marcador)
-  if (!dadosEstruturados && answer.includes('[DADOS_ESTRUTURADOS]')) {
-    const afterMarker = answer.split('[DADOS_ESTRUTURADOS]')[1];
-    const fallbackMatch = afterMarker?.match(/(\{[\s\S]*\})/);
-    if (fallbackMatch) {
-      try {
-        const parsed = JSON.parse(fallbackMatch[0]);
-        if (typeof parsed === 'object' && ('conteudo' in parsed || 'queixa_principal' in parsed)) {
-          dadosEstruturados = parsed;
-        }
-      } catch {
-        /* ignorar */
-      }
-    }
-  }
-
-  // Fallback: JSON dentro de code block ```json ... ``` ou ``` ... ```
-  if (!dadosEstruturados) {
-    const codeBlockMatch = answer.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (codeBlockMatch) {
-      try {
-        const parsed = JSON.parse(codeBlockMatch[1].trim());
-        if (typeof parsed === 'object' && ('conteudo' in parsed || 'queixa_principal' in parsed || 'queixaPrincipal' in parsed)) {
-          dadosEstruturados = parsed;
-        }
-      } catch {
-        /* ignorar */
       }
     }
   }
@@ -309,17 +316,46 @@ export async function chatWithOpenAI(
     completed = true;
   }
 
-  // Limpeza radical da resposta para o usuário:
-  // Remove TUDO que houver de [TRIAGEM...], [DADOS...] e qualquer JSON no final
-  let cleanAnswer = answer
-    .replace(/\[TRIAGEM_CONCLUIDA\]/g, '')
-    .replace(/\[DADOS_ESTRUTURADOS\]/g, '')
-    .split(/\{[\s\S]*\}/)[0] // Corta a string assim que encontrar a abertura de um JSON
-    .trim();
+  // --- LIMPEZA RADICAL DA RESPOSTA PARA O USUÁRIO ---
+  
+  // A "cleanAnswer" é o que o paciente verá. Não deve conter marcadores ou o JSON.
+  let cleanAnswer = answer;
+
+  // 1. Remove os marcadores globais
+  cleanAnswer = cleanAnswer
+    .replace(/\[TRIAGEM_CONCLUIDA\]/gi, '')
+    .replace(/\[DADOS_ESTRUTURADOS\]/gi, '');
+
+  // 2. Identifica onde o JSON começa e corta tudo que vem depois
+  // Procuramos pela primeira ocorrência de "```json" ou pelo primeiro JSON válido detectado
+  const markers = ['```json', '```', '{'];
+  let cutoffIndex = cleanAnswer.length;
+
+  // Se encontramos dados estruturados, vamos tentar ser precisos no corte
+  if (dadosEstruturados) {
+    // Tenta encontrar o bloco de código
+    const codeMatch = cleanAnswer.match(/```(?:json)?\s*\{[\s\S]*?\}/);
+    if (codeMatch && codeMatch.index !== undefined) {
+      cutoffIndex = Math.min(cutoffIndex, codeMatch.index);
+    } else {
+      // Se não há bloco de código, procura o primeiro { que abre um JSON válido
+      // (Aqui usamos uma busca simples para evitar apagar texto legítimo)
+      const firstCurly = cleanAnswer.indexOf('{');
+      if (firstCurly !== -1) {
+        // Só corta se a partir desse { conseguirmos parsear algo ou se estiver no final
+        const rest = cleanAnswer.substring(firstCurly);
+        if (rest.length < 50 || tryParseJson(rest) || rest.includes('queixa_principal')) {
+          cutoffIndex = Math.min(cutoffIndex, firstCurly);
+        }
+      }
+    }
+  }
+
+  cleanAnswer = cleanAnswer.substring(0, cutoffIndex).trim();
 
   // DEBUG FINAL
   if (completed && !dadosEstruturados) {
-    console.error('[ERRO CRÍTICO] Triagem concluída mas o JSON não foi detectado/parseado corretamente.');
+    console.error('[ERRO CRÍTICO] Triagem concluída mas o JSON não foi detectado/parseado corretamente. Resposta IA:', answer);
   }
 
   return { answer: cleanAnswer, completed, dadosEstruturados }

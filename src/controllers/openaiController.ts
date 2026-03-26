@@ -151,9 +151,19 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
 
     // Triagem concluída: retornar dados para confirmação do paciente.
     // O salvamento só ocorre após confirmação via POST /chat-ia/confirmar
-    if (completed && dadosEstruturados) {
+    let finalDados = dadosEstruturados
+    
+    if (completed && !finalDados) {
+      logger.warn('[FALLBACK] Triagem concluída sem JSON estruturado. Criando dados básicos a partir da resposta.', { userId: user.id })
+      finalDados = {
+        queixa_principal: 'Coletada via chat',
+        conteudo: answer
+      }
+    }
+
+    if (completed && finalDados) {
       try {
-        const dadosValidados = validarESanitizarDados(dadosEstruturados)
+        const dadosValidados = validarESanitizarDados(finalDados)
         return reply.send({
           answer,
           completed,
@@ -170,11 +180,6 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
           erro: 'Erro ao processar dados da triagem'
         })
       }
-    }
-
-    // Triagem ainda em andamento
-    if (completed && !dadosEstruturados) {
-      logger.error('[ERRO CRÍTICO] Triagem concluída mas o JSON não foi detectado/parseado corretamente.', new Error('JSON não detectado'), { userId: user.id })
     }
 
     return reply.send({ answer, completed })
