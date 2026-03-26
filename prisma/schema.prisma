@@ -108,6 +108,8 @@ model Consulta {
   ambulancia_telefone     String?    @map("ambulancia_telefone")
   avaliacao         String?
   estrelas          Int?
+  canceladoPor      String?           @map("cancelado_por")
+  canceladoPorId    Int?              @map("cancelado_por_id")
   medico            Medico?           @relation("ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
   paciente          Paciente          @relation("ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
   historiaClinica   HistoriaClinica[]

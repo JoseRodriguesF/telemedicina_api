@@ -134,52 +134,45 @@ export async function cancelConsulta(
     return { ok: false, error: 'consulta_not_found' }
   }
 
-  if (consulta.status === 'finished') {
-    return { ok: false, error: 'cannot_cancel_finished_consultation' }
+  if (consulta.status === 'finished' || consulta.status === 'cancelled') {
+    return { ok: false, error: 'cannot_cancel_already_cancelled_or_finished_consultation' }
   }
 
-  // Lógica para médico: tentar reatribuir
+  // Identificar quem cancelou para salvar nos novos campos
+  let canceladoPor: string = tipoUsuario;
+  let canceladoPorId: number | undefined = userId;
+
+  // Lógica específica para médico: No sistema atual, se o médico cancela,
+  // poderíamos reatribuir, mas usuário quer que a consulta seja "realmente desmarcada".
+  // Então vamos mudar o status para 'cancelled' para todos.
+  
   if (tipoUsuario === 'medico') {
     const medico = await prisma.medico.findUnique({ where: { usuario_id: userId } })
-
     if (medico && consulta.medicoId === medico.id) {
-      // Buscar médico substituto
-      const replacementDoctor = await prisma.medico.findFirst({
-        where: {
-          id: { not: medico.id },
-          verificacao: 'verificado'
-        }
-      })
-
-      if (replacementDoctor) {
-        // Reatribuir
-        const updated = await prisma.consulta.update({
-          where: { id: consultaId },
-          data: { medicoId: replacementDoctor.id }
-        })
-        return { ok: true, data: { action: 'reassigned' }, message: 'Consulta reatribuída para outro médico' }
-      } else {
-        // Liberar (sem médico)
-        const updated = await prisma.consulta.update({
-          where: { id: consultaId },
-          data: { medicoId: null }
-        })
-        return { ok: true, data: { action: 'released' }, message: 'Consulta liberada' }
-      }
+        canceladoPor = 'medico';
+        canceladoPorId = medico.id;
     }
-  }
-
-  // Lógica para paciente ou admin: deletar
-  if (tipoUsuario === 'paciente') {
+  } else if (tipoUsuario === 'paciente') {
     const paciente = await prisma.paciente.findUnique({ where: { usuario_id: userId } })
-    if (!paciente || consulta.pacienteId !== paciente.id) {
-      return { ok: false, error: 'forbidden' }
+    if (paciente && consulta.pacienteId === paciente.id) {
+        canceladoPor = 'paciente';
+        canceladoPorId = paciente.id;
+    } else {
+        return { ok: false, error: 'forbidden' }
     }
   }
 
-  // Deletar consulta
-  await prisma.consulta.delete({ where: { id: consultaId } })
-  return { ok: true, data: { action: 'deleted' }, message: 'Consulta cancelada com sucesso' }
+  // Atualizar para status cancelado sem deletar
+  await prisma.consulta.update({
+    where: { id: consultaId },
+    data: {
+      status: 'cancelled',
+      canceladoPor,
+      canceladoPorId
+    }
+  })
+
+  return { ok: true, data: { action: 'deleted' }, message: 'Consulta desmarcada com sucesso para ambas as partes' }
 }
 
 /**
