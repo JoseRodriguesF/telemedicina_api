@@ -221,17 +221,27 @@ export async function cleanupExpiredConsultations() {
     })
 
     if (todayConsultas.length > 0) {
-      const currentHour = now.getHours()
-      const currentMin = now.getMinutes()
+      // Diferença em minutos para expiração conforme pedido do usuário (20 minutos)
+      const EXPIRATION_BUFFER_MINUTES = 20;
+
       const expiredTodayIds: number[] = []
 
       for (const c of todayConsultas) {
         if (c.hora_inicio) {
-          const h = c.hora_inicio.getHours()
-          const m = c.hora_inicio.getMinutes()
+          // Diferença em ms entre Agora e a Hora de Início prevista
+          // Nota: hora_inicio do Prisma vem como Date(1970-01-01T...)
+          // Precisamos comparar apenas os minutos absolutos do dia.
+          const currentHour = now.getHours()
+          const currentMin = now.getMinutes()
           
-          // Se a hora atual for 2 horas após a hora de início prevista
-          if (currentHour > (h + 2) || (currentHour === (h + 2) && currentMin >= m)) {
+          const startHour = c.hora_inicio.getHours()
+          const startMin = c.hora_inicio.getMinutes()
+          
+          const currentMinutesTotal = currentHour * 60 + currentMin
+          const startMinutesTotal = startHour * 60 + startMin
+          
+          // Se passaram mais de 20 minutos do horário previsto
+          if (currentMinutesTotal >= (startMinutesTotal + EXPIRATION_BUFFER_MINUTES)) {
             expiredTodayIds.push(c.id)
           }
         }
@@ -242,7 +252,7 @@ export async function cleanupExpiredConsultations() {
           where: { id: { in: expiredTodayIds } },
           data: { status: 'expired' }
         })
-        logger.info(`[Cleanup] Marcou ${expiredTodayIds.length} consultas de HOJE como expiradas por atraso.`)
+        logger.info(`[Cleanup] Marcou ${expiredTodayIds.length} consultas de HOJE como expiradas por atraso (> 20 min).`)
       }
     }
 
