@@ -197,6 +197,7 @@ enum ConsultaStatus {
   finished
   solicitada
   cancelled
+  expired
 
   @@map("consulta_status_enum")
 }

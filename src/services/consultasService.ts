@@ -1,5 +1,6 @@
 import prisma from '../config/database'
 import { ConsultaStatus, ServiceResult } from '../types/shared'
+import logger from '../utils/logger'
 
 export async function getConsultaById(id: number) {
   return prisma.consulta.findUnique({ where: { id } })
@@ -181,7 +182,79 @@ export async function cancelConsulta(
   return { ok: true, data: { action: 'deleted' }, message: 'Consulta cancelada com sucesso' }
 }
 
+/**
+ * Marca consultas agendadas ou solicitadas que passaram da data como expiradas.
+ */
+export async function cleanupExpiredConsultations() {
+  try {
+    const now = new Date()
+    
+    // 1. Consultas com data anterior a hoje (ignorando horário)
+    const yesterday = new Date(now)
+    yesterday.setHours(0, 0, 0, 0)
+
+    const resPastDays = await prisma.consulta.updateMany({
+      where: {
+        status: { in: ['agendada', 'solicitada', 'scheduled'] },
+        data_consulta: { lt: yesterday }
+      },
+      data: { status: 'expired' }
+    })
+
+    if (resPastDays.count > 0) {
+      logger.info(`[Cleanup] Marcou ${resPastDays.count} consultas de dias anteriores como expiradas.`)
+    }
+
+    // 2. Consultas de HOJE que já passaram do horário (buffer de 2 horas)
+    // Nota: O campo hora_inicio no Postgres (db.Time) é lido pelo Prisma como 1970-01-01T...
+    // Precisamos comparar apenas a parte do tempo.
+    
+    // Buscar consultas de hoje para verificar horário
+    const todayConsultas = await prisma.consulta.findMany({
+      where: {
+        status: { in: ['agendada', 'solicitada', 'scheduled'] },
+        data_consulta: {
+          gte: yesterday,
+          lt: new Date(yesterday.getTime() + 24 * 60 * 60 * 1000)
+        }
+      }
+    })
+
+    if (todayConsultas.length > 0) {
+      const currentHour = now.getHours()
+      const currentMin = now.getMinutes()
+      const expiredTodayIds: number[] = []
+
+      for (const c of todayConsultas) {
+        if (c.hora_inicio) {
+          const h = c.hora_inicio.getHours()
+          const m = c.hora_inicio.getMinutes()
+          
+          // Se a hora atual for 2 horas após a hora de início prevista
+          if (currentHour > (h + 2) || (currentHour === (h + 2) && currentMin >= m)) {
+            expiredTodayIds.push(c.id)
+          }
+        }
+      }
+
+      if (expiredTodayIds.length > 0) {
+        await prisma.consulta.updateMany({
+          where: { id: { in: expiredTodayIds } },
+          data: { status: 'expired' }
+        })
+        logger.info(`[Cleanup] Marcou ${expiredTodayIds.length} consultas de HOJE como expiradas por atraso.`)
+      }
+    }
+
+  } catch (err) {
+    logger.error('[Cleanup] Erro ao limpar consultas expiradas', err as Error)
+  }
+}
+
 export async function listConsultasScheduled(where: any) {
+  // Garantir que a lista esteja limpa antes de retornar
+  await cleanupExpiredConsultations()
+
   return prisma.consulta.findMany({
     where: {
       ...where,

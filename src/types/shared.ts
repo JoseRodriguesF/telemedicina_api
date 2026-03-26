@@ -32,7 +32,7 @@ export interface JoinRoomBody {
 /**
  * Status de consulta
  */
-export type ConsultaStatus = 'scheduled' | 'agendada' | 'in_progress' | 'finished' | 'solicitada' | 'cancelled'
+export type ConsultaStatus = 'scheduled' | 'agendada' | 'in_progress' | 'finished' | 'solicitada' | 'cancelled' | 'expired'
 
 /**
  * Tipos de usuário
