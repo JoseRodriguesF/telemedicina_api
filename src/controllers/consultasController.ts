@@ -117,7 +117,6 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { hora_fim, repouso, destino_final, especialidade_seguimento, diagnostico, evolucao, plano_terapeutico, endereco_ambulancia, resumo_consulta } = (req.body as any) || {}
 
   // O resumo da consulta é exclusivo para médicos — apenas o médico da consulta pode gravá-lo
-  const user = req.user as AuthenticatedUser
   const shouldSaveResumo = user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId
 
   await prisma.consulta.update({
