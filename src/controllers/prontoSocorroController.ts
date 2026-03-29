@@ -255,8 +255,18 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
       }
     })
 
+    // Mapeia o campo 'resumo' para 'resumo_consulta' (exclusivo para médicos)
+    // O paciente nunca deve visualizar o resumo interno do médico
+    const isMedico = user.tipo_usuario === 'medico'
+    const result = consultas.map(c => {
+      const { resumo, ...rest } = c as any
+      return isMedico
+        ? { ...rest, resumo_consulta: resumo ?? null }
+        : { ...rest, resumo_consulta: undefined }
+    })
+
     logger.info('Histórico completo recuperado', { count: consultas.length })
-    return reply.send(consultas)
+    return reply.send(result)
   } catch (error) {
     logger.error('Erro ao buscar histórico completo', error as Error, { userId: user.id })
     return reply.code(500).send({ error: 'internal_server_error', message: 'Erro ao buscar histórico de consultas' })
@@ -368,13 +378,22 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
       }
     })
 
+    // Campo resumo é exclusivo para médicos
+    const isMedico = user.tipo_usuario === 'medico'
+    const result = consultas.map(c => {
+      const { resumo, ...rest } = c as any
+      return isMedico
+        ? { ...rest, resumo_consulta: resumo ?? null }
+        : { ...rest, resumo_consulta: undefined }
+    })
+
     logger.info('Busca de histórico concluída', {
       count: consultas.length,
       searchTerm,
       userId: user.id
     })
 
-    return reply.send(consultas)
+    return reply.send(result)
   } catch (error) {
     logger.error('Erro ao buscar consultas', error as Error, {
       userId: user.id,

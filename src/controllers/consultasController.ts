@@ -72,7 +72,14 @@ export async function getConsultaDetails(req: RequestWithNumericId, reply: Fasti
   const user = req.user as AuthenticatedUser
   if (!checkAuth(user, consulta)) return reply.code(403).send({ error: 'forbidden' })
 
-  return reply.send(consulta)
+  // Mapeia 'resumo' (campo do banco) para 'resumo_consulta' e o Remove da resposta para pacientes
+  const { resumo, ...rest } = consulta as any
+  const isMedico = user.tipo_usuario === 'medico'
+  const response = isMedico
+    ? { ...rest, resumo_consulta: resumo ?? null }
+    : rest // paciente não recebe o campo
+
+  return reply.send(response)
 }
 
 export async function listParticipants(req: RequestWithNumericId, reply: FastifyReply) {
@@ -107,7 +114,11 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(id)
   Rooms.end(roomId)
 
-  const { hora_fim, repouso, destino_final, especialidade_seguimento, diagnostico, evolucao, plano_terapeutico, endereco_ambulancia } = (req.body as any) || {}
+  const { hora_fim, repouso, destino_final, especialidade_seguimento, diagnostico, evolucao, plano_terapeutico, endereco_ambulancia, resumo_consulta } = (req.body as any) || {}
+
+  // O resumo da consulta é exclusivo para médicos — apenas o médico da consulta pode gravá-lo
+  const user = req.user as AuthenticatedUser
+  const shouldSaveResumo = user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId
 
   await prisma.consulta.update({
     where: { id },
@@ -123,7 +134,8 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
       ambulancia_endereco: endereco_ambulancia?.endereco,
       ambulancia_complemento: endereco_ambulancia?.complemento,
       ambulancia_info: endereco_ambulancia?.informacoes_adicionais,
-      ambulancia_telefone: endereco_ambulancia?.telefone
+      ambulancia_telefone: endereco_ambulancia?.telefone,
+      ...(shouldSaveResumo && resumo_consulta !== undefined ? { resumo: resumo_consulta } : {})
     } as Prisma.ConsultaUpdateInput
   })
   return reply.send({ ok: true })
