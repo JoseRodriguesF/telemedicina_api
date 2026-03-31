@@ -39,6 +39,7 @@ export class RegisterService {
     telefone: string
     responsavel_legal?: string | null
     telefone_responsavel?: string | null
+    aceitou_tcle: boolean
     endereco?: { endereco: string; numero: string; complemento?: string | null }
   }) {
     // Verificar se usuario existe e é paciente
@@ -92,7 +93,9 @@ export class RegisterService {
           estado_civil: data.estado_civil,
           telefone,
           responsavel_legal,
-          telefone_responsavel
+          telefone_responsavel,
+          aceitouTCLE: data.aceitou_tcle,
+          tcleData: data.aceitou_tcle ? new Date() : null
         }
       })
 
@@ -136,6 +139,8 @@ export class RegisterService {
     cpf: string
     sexo: string
     crm: string
+    crm_uf: string
+    rqe?: string | null
     diploma: { data: string; mimetype: string }
     especializacao?: { data: string; mimetype: string } | null
     assinatura_digital: { data: string; mimetype: string }
@@ -187,6 +192,8 @@ export class RegisterService {
           cpf: cleanCPF,
           sexo: data.sexo,
           crm: data.crm,
+          crm_uf: data.crm_uf,
+          rqe: data.rqe || null,
           // Documentos Binários
           diploma_data: Buffer.from(data.diploma.data, 'base64'),
           diploma_mimetype: data.diploma.mimetype,

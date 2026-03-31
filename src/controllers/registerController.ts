@@ -24,6 +24,7 @@ const registerPersonalSchema = z.object({
   telefone: z.string().regex(/^\d{10,11}$/, 'Telefone deve ter 10 ou 11 dígitos'),
   responsavel_legal: z.string().nullish(),
   telefone_responsavel: z.string().nullish(),
+  aceitou_tcle: z.boolean().refine(val => val === true, 'O aceite do TCLE é obrigatório para telemedicina'),
   endereco: z.object({
     endereco: z.string().min(1, 'Endereço é obrigatório'),
     numero: z.union([z.number(), z.string()]).transform(val => String(val)),
@@ -43,6 +44,8 @@ const registerMedicoSchema = z.object({
   cpf: z.string().regex(/^\d{11}$/, 'CPF deve ter 11 dígitos numéricos'),
   sexo: z.string().min(1, 'Sexo é obrigatório'),
   crm: z.string().min(1, 'CRM é obrigatório'),
+  crm_uf: z.string().length(2, 'UF do CRM deve ter 2 caracteres'),
+  rqe: z.string().nullish(),
   diploma: fileSchema,
   especializacao: fileSchema.nullish(),
   assinatura_digital: fileSchema,

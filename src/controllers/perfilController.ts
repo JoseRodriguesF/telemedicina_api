@@ -3,6 +3,7 @@ import { PerfilService } from '../services/perfilService'
 import { AuthenticatedUser } from '../types/shared'
 import ApiError from '../utils/apiError'
 import logger from '../utils/logger'
+import { logAuditoria } from '../utils/auditLogger'
 
 const perfilService = new PerfilService()
 
@@ -18,6 +19,16 @@ export class PerfilController {
             if (!profile) {
                 return reply.code(404).send({ error: { code: 'USER_NOT_FOUND', message: 'Perfil não encontrado' } })
             }
+
+            // Registro na trilha de auditoria (LGPD/CFM)
+            await logAuditoria({
+                usuarioId: user.id,
+                acao: 'ACCESS_PROFILE',
+                recurso: 'USUARIO',
+                recursoId: user.id,
+                ip: request.ip,
+                userAgent: request.headers['user-agent']
+            });
 
             // 1. Antes de qualquer serialização, capturar flags e REMOVER buffers para não travar o processo
             const medico = profile.medico as any
@@ -100,6 +111,16 @@ export class PerfilController {
             if (!doc || !doc.data) {
                 return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'Documento não encontrado' } })
             }
+
+            // Registro na trilha de auditoria (LGPD/CFM)
+            await logAuditoria({
+                usuarioId: user.id,
+                acao: 'ACCESS_DOCUMENT',
+                recurso: 'MEDICO_DOC',
+                detalhes: `Acesso ao documento: ${type}`,
+                ip: request.ip,
+                userAgent: request.headers['user-agent']
+            });
 
             return reply.type(doc.mimetype || 'application/octet-stream').send(doc.data)
         } catch (error: any) {

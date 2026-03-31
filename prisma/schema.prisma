@@ -34,6 +34,8 @@ model Paciente {
   telefone_responsavel  String?           @db.VarChar(20)
   notas                 String?
   historiaClinicaResumo String?           @map("historia_clinica")
+  aceitouTCLE           Boolean           @default(false) @map("aceitou_tcle")
+  tcleData              DateTime?         @map("tcle_data")
   consultas             Consulta[]        @relation("ConsultaPaciente")
   historiaClinica       HistoriaClinica[]
   usuario               Usuario           @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
@@ -49,6 +51,8 @@ model Medico {
   cpf                              String            @unique @db.VarChar(14)
   sexo                             String?           @db.VarChar(20)
   crm                              String            @db.VarChar(50)
+  crm_uf                           String            @default("SP") @db.VarChar(2)
+  rqe                              String?           @db.VarChar(50)
   diploma_url                      String?           @db.VarChar(255)
   especializacao_url               String?           @db.VarChar(255)
   assinatura_digital_url           String?           @db.VarChar(255)
@@ -110,11 +114,13 @@ model Consulta {
   estrelas          Int?
   canceladoPor      String?           @map("cancelado_por")
   canceladoPorId    Int?              @map("cancelado_por_id")
+  observacaoTecnica String?           @map("observacao_tecnica") // Registros automáticos de falhas de conexão p/ CFM
   medico            Medico?           @relation("ConsultaMedico", fields: [medicoId], references: [id], onDelete: Cascade)
   paciente          Paciente          @relation("ConsultaPaciente", fields: [pacienteId], references: [id], onDelete: Cascade)
   historiaClinica   HistoriaClinica[]
   prescricoes       Prescricao[]
   anexos            ConsultaAnexo[]
+  eventosTecnicos   EventoTecnico[]
 
   @@index([medicoId], map: "idx_consultas_medico_id")
   @@index([pacienteId], map: "idx_consultas_paciente_id")
@@ -168,12 +174,41 @@ model Prescricao {
   inclusoConvenio Boolean  @default(false) @map("incluso_convenio")
   pdf_data        Bytes?   @map("pdf_data")
   pdf_mimetype    String?  @map("pdf_mimetype") @db.VarChar(100)
+  assinaturaHash  String?  @map("assinatura_hash") // Hash da assinatura ICP-Brasil para conferência NGS2
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
   consulta        Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
 
   @@index([consultaId], map: "idx_prescricoes_consulta_id")
   @@map("prescricoes")
+}
+
+model TrilhaAuditoria {
+  id            Int      @id @default(autoincrement())
+  usuarioId     Int      @map("usuario_id")
+  acao          String   @db.VarChar(100)
+  recurso       String   @db.VarChar(100)
+  recursoId     Int?     @map("recurso_id")
+  detalhes      String?
+  ip            String?  @db.VarChar(45)
+  userAgent     String?  @map("user_agent")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("trilha_auditoria")
+}
+
+model EventoTecnico {
+  id            Int      @id @default(autoincrement())
+  consultaId    Int      @map("consulta_id")
+  usuarioId     Int      @map("usuario_id")
+  tipo          String   @db.VarChar(50) // ex: 'FAIL_CONNECTION', 'LOW_QUALITY', 'BITRATE_DROP'
+  status_info   Json?    @map("status_info") // Bitrate, Jitter, Packet Loss, etc.
+  observacao    String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  consulta      Consulta @relation(fields: [consultaId], references: [id], onDelete: Cascade)
+
+  @@index([consultaId], map: "idx_eventos_tecnicos_consulta_id")
+  @@map("eventos_tecnicos")
 }
 
 enum TipoUsuario {

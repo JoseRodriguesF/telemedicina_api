@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { HistoriaClinicaService } from '../services/historiaClinicaService'
 import ApiError from '../utils/apiError'
 import logger from '../utils/logger'
+import { logAuditoria } from '../utils/auditLogger'
+import { AuthenticatedUser } from '../types/shared'
 
 const historiaService = new HistoriaClinicaService()
 
@@ -81,6 +83,20 @@ export class HistoriaClinicaController {
             }
 
             const historias = await historiaService.buscarHistoriaPorPaciente(id)
+            const user = request.user as AuthenticatedUser
+
+            // Auditoria (LGPD/CFM)
+            if (user) {
+                await logAuditoria({
+                    usuarioId: user.id,
+                    acao: 'ACCESS_HISTORIA_PACIENTE',
+                    recurso: 'HISTORIA_CLINICA',
+                    recursoId: id,
+                    detalhes: `Acesso à lista de histórias clínicas do paciente ${id}`,
+                    ip: request.ip,
+                    userAgent: request.headers['user-agent']
+                })
+            }
 
             reply.send({
                 message: 'Histórias clínicas encontradas',
@@ -121,6 +137,7 @@ export class HistoriaClinicaController {
             }
 
             const historia = await historiaService.buscarUltimaHistoria(id)
+            const user = request.user as AuthenticatedUser
 
             if (!historia) {
                 reply.code(404).send({
@@ -130,6 +147,19 @@ export class HistoriaClinicaController {
                     }
                 })
                 return
+            }
+
+            // Auditoria (LGPD/CFM)
+            if (user) {
+                await logAuditoria({
+                    usuarioId: user.id,
+                    acao: 'ACCESS_ULTIMA_HISTORIA',
+                    recurso: 'HISTORIA_CLINICA',
+                    recursoId: historia.id,
+                    detalhes: `Acesso à última história clínica do paciente ${id}`,
+                    ip: request.ip,
+                    userAgent: request.headers['user-agent']
+                })
             }
 
             reply.send({
