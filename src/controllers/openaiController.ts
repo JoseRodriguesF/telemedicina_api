@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-import { chatWithOpenAI } from '../services/openaiService'
+import { chatWithOpenAI, transcreverConsulta, resumirTranscricao } from '../services/openaiService'
 import prisma from '../config/database'
 import { ChatMessage } from '../services/openaiService'
 import logger from '../utils/logger'
@@ -238,5 +238,42 @@ export async function confirmTriagemController(req: FastifyRequest<{ Body: Confi
   } catch (err: any) {
     logger.error('Erro ao confirmar triagem', err, { userId: (req as any).user?.id })
     return reply.code(500).send({ error: 'erro_ao_confirmar_triagem' })
+  }
+}
+
+/**
+ * Recebe o áudio da consulta, transcreve e gera um resumo clínico
+ */
+export async function transcreverConsultaController(
+  req: FastifyRequest<{ Body: { audio: string; filename?: string } }>,
+  reply: FastifyReply
+) {
+  try {
+    const user = req.user
+    if (!user || user.tipo_usuario !== 'medico') {
+      return reply.code(403).send({ error: 'apenas_medicos_podem_transcrever_consultas' })
+    }
+
+    const { audio, filename } = req.body
+    if (!audio) {
+      return reply.code(400).send({ error: 'audio_obrigatorio_base64' })
+    }
+
+    logger.info(`Iniciando transcrição de áudio via OpenAI para médico ${user.id}`)
+    
+    const audioBuffer = Buffer.from(audio, 'base64')
+    const transcricao = await transcreverConsulta(audioBuffer, filename || 'consulta.webm')
+    
+    logger.info(`Transcrição concluída. Gerando resumo clínico...`)
+    const resumo = await resumirTranscricao(transcricao)
+
+    return reply.send({
+      ok: true,
+      transcricao,
+      resumo
+    })
+  } catch (err: any) {
+    logger.error('Erro ao transcrever/resumir consulta', err, { userId: (req as any).user?.id })
+    return reply.code(500).send({ error: 'erro_no_processamento_de_audio' })
   }
 }

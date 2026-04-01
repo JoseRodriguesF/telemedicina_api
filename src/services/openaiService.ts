@@ -360,3 +360,62 @@ export async function chatWithOpenAI(
 
   return { answer: cleanAnswer, completed, dadosEstruturados }
 }
+
+/**
+ * Transcreve um áudio usando OpenAI Whisper
+ */
+export async function transcreverConsulta(audioBuffer: Buffer, filename: string) {
+  try {
+    // Whisper requer um arquivo real ou uma stream que se comporte como tal
+    // O SDK da OpenAI aceita um objeto que implementa as propriedades necessárias
+    const transcription = await client.audio.transcriptions.create({
+      file: await OpenAI.toFile(audioBuffer, filename),
+      model: 'whisper-1',
+      language: 'pt',
+      response_format: 'text',
+    });
+
+    return transcription;
+  } catch (error) {
+    console.error('Erro na transcrição OpenAI:', error);
+    throw error;
+  }
+}
+
+/**
+ * Resume uma transcrição de consulta médica em um formato estruturado para o prontuário
+ */
+export async function resumirTranscricao(transcricao: string) {
+  try {
+    const prompt = `Você é um assistente médico especializado em documentação clínica.
+    Sua tarefa é ler a transcrição de uma consulta (diálogo entre médico e paciente) e gerar um resumo técnico estruturado para o prontuário.
+    
+    A transcrição é a seguinte:
+    """
+    ${transcricao}
+    """
+    
+    Extraia e organize as informações nos seguintes tópicos:
+    1. QUEIXA PRINCIPAL: O motivo primordial da consulta.
+    2. HISTÓRICO DA DOENÇA ATUAL (HDA): Detalhes dos sintomas, início, evolução.
+    3. EXAME FÍSICO (Relatado): O que foi observado ou relatado durante a chamada.
+    4. IMPRESSÃO DIAGNÓSTICA: Hipóteses levantadas pelo médico.
+    5. CONDUTA/PLANO TERAPÊUTICO: Medicamentos prescritos, exames solicitados, orientações e retorno.
+
+    Responda APENAS com o texto estruturado em Markdown, de forma concisa e profissional.`;
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o', // Usamos um modelo mais potente para o resumo final
+      temperature: 0.3,
+      messages: [
+        { role: 'system', content: 'Você é um assistente médico de alto nível. Escreva de forma técnica e objetiva.' },
+        { role: 'user', content: prompt }
+      ]
+    });
+
+    return response.choices[0].message.content;
+  } catch (error) {
+    console.error('Erro no resumo OpenAI:', error);
+    throw error;
+  }
+}

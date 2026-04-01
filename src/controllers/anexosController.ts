@@ -4,6 +4,7 @@ import logger from '../utils/logger'
 import { validateNumericId } from '../utils/controllerHelpers'
 import { AuthenticatedUser } from '../types/shared'
 import { getConsultaById } from '../services/consultasService'
+import { logAuditoria } from '../utils/auditLogger'
 
 /**
  * Salva uma lista de anexos (arquivos do paciente) vinculados a uma consulta
@@ -80,6 +81,17 @@ export async function listarAnexos(req: FastifyRequest<{ Params: { id: string } 
     return reply.code(403).send({ error: 'forbidden', message: 'Sem permissão para ver os arquivos desta consulta.' })
   }
 
+  // Auditoria (LGPD/CFM)
+  await logAuditoria({
+    usuarioId: user.id,
+    acao: 'LIST_ANEXOS',
+    recurso: 'CONSULTA',
+    recursoId: consultaId,
+    detalhes: `Listagem de anexos da consulta ${consultaId}`,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
+
   try {
     const anexos = await prisma.consultaAnexo.findMany({
       where: { consultaId },
@@ -127,6 +139,17 @@ export async function getAnexoConteudo(req: FastifyRequest<{ Params: { id: strin
     if (!isMedico && !isPaciente && !isAdmin) {
       return reply.code(403).send({ error: 'forbidden' })
     }
+
+    // Auditoria (LGPD/CFM)
+    await logAuditoria({
+      usuarioId: user.id,
+      acao: 'DOWNLOAD_ANEXO',
+      recurso: 'CONSULTA_ANEXO',
+      recursoId: anexoId,
+      detalhes: `Download do anexo ID: ${anexoId} da consulta ${anexo.consultaId}`,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     reply.type(anexo.tipo_mime)
     return reply.send(anexo.arquivo)

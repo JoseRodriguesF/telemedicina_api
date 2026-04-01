@@ -64,7 +64,32 @@ export async function claimConsultaByMedico(
   consultaId: number,
   medicoId: number
 ): Promise<ServiceResult> {
-  // Atomic claim: update only if still scheduled and unassigned
+  // 1. Buscar dados para validação de territorialidade (CFM Res. 2.314/2022 Art. 2)
+  const [consulta, medico] = await Promise.all([
+    prisma.consulta.findUnique({ 
+      where: { id: consultaId },
+      include: { paciente: { include: { usuario: { include: { enderecos: true } } } } }
+    }),
+    prisma.medico.findUnique({ where: { id: medicoId } })
+  ]);
+
+  if (!consulta || !medico) {
+    return { ok: false, error: 'not_found' };
+  }
+
+  // Validação de Territorialidade (Log de Alerta)
+  const pacienteEstado = consulta.paciente.usuario.enderecos[0]?.estado;
+  const medicoUF = medico.crm_uf;
+
+  if (pacienteEstado && medicoUF && pacienteEstado !== medicoUF) {
+    logger.warn(`CONFORMIDADE CFM: Médico (UF: ${medicoUF}) atendendo paciente em estado diferente (UF: ${pacienteEstado}).`, {
+      consultaId,
+      medicoId,
+      pacienteId: consulta.pacienteId
+    });
+  }
+
+  // 2. Atomic claim: update only if still scheduled and unassigned
   const res = await prisma.consulta.updateMany({
     where: {
       id: consultaId,
@@ -74,7 +99,6 @@ export async function claimConsultaByMedico(
     data: {
       medicoId,
       status: 'in_progress',
-      // Usar a hora atual do servidor como UTC
       hora_inicio: new Date()
     }
   })

@@ -201,6 +201,20 @@ export class HistoriaClinicaController {
             }
 
             const historia = await historiaService.buscarHistoriaPorId(historiaId)
+            const user = request.user as AuthenticatedUser
+
+            // Auditoria (LGPD/CFM)
+            if (user) {
+                await logAuditoria({
+                    usuarioId: user.id,
+                    acao: 'ACCESS_HISTORIA_ID',
+                    recurso: 'HISTORIA_CLINICA',
+                    recursoId: historiaId,
+                    detalhes: `Acesso à história clínica específica ID: ${historiaId}`,
+                    ip: request.ip,
+                    userAgent: request.headers['user-agent']
+                })
+            }
 
             reply.send({
                 message: 'História clínica encontrada',
