@@ -43,27 +43,38 @@ export function initSignalServer(httpServer: Server) {
       return
     }
 
+    // AUDITORIA: Em telemedicina, o acesso anônimo a salas é PROIBIDO.
+    // Se a sala não estiver vinculada a uma consulta, negamos o acesso (Zero Trust).
+    if (!room.consultaId) {
+      logger.warn('Acesso negado a sala standalone (sem consultaId)', { roomId, userId: decoded.id })
+      ws.close(4003, 'forbidden_standalone_room')
+      return
+    }
+
     // autorização: se a sala estiver vinculada a uma consulta, somente médico/paciente daquela consulta
-    if (room.consultaId) {
-      const consulta = await getConsultaById(room.consultaId)
-      if (!consulta) {
-        ws.close(4004, 'room_consulta_not_found')
-        return
-      }
-      // decoded.id é usuario.id; precisamos mapear para medico.id ou paciente.id
-      const usuarioId = decoded.id
-      // tentar mapear como medico
-      const medico = await prisma.medico.findUnique({ where: { usuario_id: usuarioId } })
-      // tentar mapear como paciente
-      const paciente = await prisma.paciente.findUnique({ where: { usuario_id: usuarioId } })
+    const consulta = await getConsultaById(room.consultaId)
+    if (!consulta) {
+      ws.close(4004, 'room_consulta_not_found')
+      return
+    }
+    // decoded.id é usuario.id; precisamos mapear para medico.id ou paciente.id
+    const usuarioId = decoded.id
+    // tentar mapear como medico
+    const medico = await prisma.medico.findUnique({ where: { usuario_id: usuarioId } })
+    // tentar mapear como paciente
+    const paciente = await prisma.paciente.findUnique({ where: { usuario_id: usuarioId } })
 
-      const isMedicoDaConsulta = !!medico && consulta.medicoId === medico.id
-      const isPacienteDaConsulta = !!paciente && consulta.pacienteId === paciente.id
+    const isMedicoDaConsulta = !!medico && consulta.medicoId === medico.id
+    const isPacienteDaConsulta = !!paciente && consulta.pacienteId === paciente.id
 
-      if (!isMedicoDaConsulta && !isPacienteDaConsulta) {
-        ws.close(4003, 'forbidden')
-        return
-      }
+    if (!isMedicoDaConsulta && !isPacienteDaConsulta) {
+      logger.warn('Tentativa de acesso não autorizado a sala de consulta', { 
+        roomId, 
+        userId: usuarioId,
+        consultaId: room.consultaId 
+      })
+      ws.close(4003, 'forbidden')
+      return
     }
 
     // default client info; will be finalized on join message

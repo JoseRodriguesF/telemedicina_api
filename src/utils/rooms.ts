@@ -1,3 +1,5 @@
+import crypto from 'node:crypto'
+
 type Participant = {
   userId: string | number
   role?: 'medico' | 'paciente'
@@ -11,8 +13,11 @@ type RoomState = {
 
 const rooms = new Map<string, RoomState>()
 
+/**
+ * Gera um ID de sala com alta entropia para prevenir ataques de enumeração.
+ */
 function generateRoomId(): string {
-  return Math.random().toString(36).slice(2, 10) + Date.now().toString(36)
+  return crypto.randomBytes(16).toString('hex')
 }
 
 export const Rooms = {
@@ -28,7 +33,10 @@ export const Rooms = {
     return { roomId, created: true }
   },
 
-  // Create a room not tied to any consulta
+  /**
+   * @deprecated Salas sem consultaId são um risco de segurança em telemedicina.
+   * Mantido apenas para triagem inicial controlada.
+   */
   createStandalone(): { roomId: string } {
     const roomId = generateRoomId()
     rooms.set(roomId, { consultaId: null, participants: [], createdAt: Date.now() })

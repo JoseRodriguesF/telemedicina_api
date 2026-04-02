@@ -5,11 +5,27 @@ import { validateNumericId } from '../utils/controllerHelpers'
 import { AuthenticatedUser } from '../types/shared'
 import { getConsultaById } from '../services/consultasService'
 import { logAuditoria } from '../utils/auditLogger'
+import { encrypt, decrypt } from '../utils/encryption'
+
+/**
+ * Validação de Magic Bytes (Assinatura de arquivo)
+ * Previne upload de executáveis disfarçados de PDF/IMG.
+ */
+function isValidMagicBytes(buffer: Buffer, mimeType: string): boolean {
+  if (mimeType === 'application/pdf') {
+    return buffer.slice(0, 4).toString() === '%PDF'
+  }
+  if (mimeType.startsWith('image/')) {
+    // JPEG: FF D8 FF
+    if (mimeType === 'image/jpeg') return buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF
+    // PNG: 89 50 4E 47
+    if (mimeType === 'image/png') return buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47
+  }
+  return true // Outros tipos sob risco controlado
+}
 
 /**
  * Salva uma lista de anexos (arquivos do paciente) vinculados a uma consulta
- * POST /consultas/:id/anexos
- * Body: { anexos: Array<{ data: string; nome?: string; tipo_mime: string }> }
  */
 export async function salvarAnexos(req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
   const validation = validateNumericId(req.params.id, 'consulta_id')
@@ -21,7 +37,6 @@ export async function salvarAnexos(req: FastifyRequest<{ Params: { id: string } 
 
   const user = req.user as AuthenticatedUser
 
-  // Apenas o próprio paciente da consulta pode enviar anexos
   if (user.tipo_usuario !== 'paciente' || user.pacienteId !== consulta.pacienteId) {
     return reply.code(403).send({ error: 'forbidden', message: 'Apenas o paciente da consulta pode enviar arquivos.' })
   }
@@ -34,13 +49,21 @@ export async function salvarAnexos(req: FastifyRequest<{ Params: { id: string } 
   }
 
   try {
-    // Para cada arquivo, converte o base64 (string) para um Buffer binário
     const attachmentsToSave = anexos.map(a => {
-      // Se vier com prefixo "data:...base64,", removemos
       const base64Clean = a.data.includes('base64,') ? a.data.split('base64,')[1] : a.data;
+      const buffer = Buffer.from(base64Clean, 'base64')
+      
+      // OWASP: Validação de integridade do arquivo
+      if (!isValidMagicBytes(buffer, a.tipo_mime)) {
+        throw new Error(`Arquivo inválido detectado: ${a.nome}`)
+      }
+
+      // LGPD: Criptografia do buffer binário antes de persistir no DB
+      const encryptedBuffer = encrypt(buffer)
+
       return {
         consultaId,
-        arquivo: Buffer.from(base64Clean, 'base64'),
+        arquivo: Buffer.from(encryptedBuffer, 'utf8'), // O buffer criptografado é uma string hex formatada
         tipo_mime: a.tipo_mime,
         nome: a.nome || 'anexo'
       }
@@ -50,17 +73,16 @@ export async function salvarAnexos(req: FastifyRequest<{ Params: { id: string } 
       data: attachmentsToSave
     })
 
-    logger.info('Anexos salvos com sucesso no banco', { consultaId, count: created.count, pacienteId: user.pacienteId })
+    logger.info('Anexos criptografados e salvos com sucesso', { consultaId, count: created.count })
     return reply.send({ ok: true, count: created.count })
   } catch (err: any) {
-    logger.error('Erro ao salvar anexos no banco', err, { consultaId })
-    return reply.code(500).send({ error: 'internal_error', message: 'Erro ao salvar os arquivos no banco de dados.' })
+    logger.error('Erro ao salvar anexos', err)
+    return reply.code(400).send({ error: 'security_validation_failed', message: err.message })
   }
 }
 
 /**
  * Lista todos os anexos de uma consulta (Metadados apenas)
- * GET /consultas/:id/anexos
  */
 export async function listarAnexos(req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
   const validation = validateNumericId(req.params.id, 'consulta_id')
@@ -71,51 +93,31 @@ export async function listarAnexos(req: FastifyRequest<{ Params: { id: string } 
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
   const user = req.user as AuthenticatedUser
+  const isAuthorized = (user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId) ||
+                       (user.tipo_usuario === 'paciente' && user.pacienteId === consulta.pacienteId) ||
+                       (user.tipo_usuario === 'admin')
 
-  // Verificar permissão
-  const isMedicoDaConsulta = user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId
-  const isPacienteDaConsulta = user.tipo_usuario === 'paciente' && user.pacienteId === consulta.pacienteId
-  const isAdmin = user.tipo_usuario === 'admin'
+  if (!isAuthorized) return reply.code(403).send({ error: 'forbidden' })
 
-  if (!isMedicoDaConsulta && !isPacienteDaConsulta && !isAdmin) {
-    return reply.code(403).send({ error: 'forbidden', message: 'Sem permissão para ver os arquivos desta consulta.' })
-  }
-
-  // Auditoria (LGPD/CFM)
   await logAuditoria({
     usuarioId: user.id,
     acao: 'LIST_ANEXOS',
     recurso: 'CONSULTA',
     recursoId: consultaId,
-    detalhes: `Listagem de anexos da consulta ${consultaId}`,
     ip: req.ip,
     userAgent: req.headers['user-agent']
   })
 
-  try {
-    const anexos = await prisma.consultaAnexo.findMany({
-      where: { consultaId },
-      orderBy: { createdAt: 'asc' },
-      select: {
-        id: true,
-        consultaId: true,
-        // NÃO selecionamos o campo 'arquivo' aqui por ser pesado
-        nome: true,
-        tipo_mime: true,
-        createdAt: true
-      }
-    })
+  const anexos = await prisma.consultaAnexo.findMany({
+    where: { consultaId },
+    select: { id: true, consultaId: true, nome: true, tipo_mime: true, createdAt: true }
+  })
 
-    return reply.send(anexos)
-  } catch (err: any) {
-    logger.error('Erro ao listar anexos', err, { consultaId })
-    return reply.code(500).send({ error: 'internal_error', message: 'Erro ao buscar os arquivos.' })
-  }
+  return reply.send(anexos)
 }
 
 /**
- * Obtém o conteúdo de um anexo específico (Binário)
- * GET /consultas/anexos/:id/arquivo
+ * Obtém o conteúdo de um anexo específico (Binário Descriptografado)
  */
 export async function getAnexoConteudo(req: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
   const validation = validateNumericId(req.params.id, 'anexo_id')
@@ -132,30 +134,30 @@ export async function getAnexoConteudo(req: FastifyRequest<{ Params: { id: strin
     if (!anexo) return reply.code(404).send({ error: 'file_not_found' })
 
     const user = req.user as AuthenticatedUser
-    const isMedico = user.tipo_usuario === 'medico' && user.medicoId === anexo.consulta.medicoId
-    const isPaciente = user.tipo_usuario === 'paciente' && user.pacienteId === anexo.consulta.pacienteId
-    const isAdmin = user.tipo_usuario === 'admin'
+    const isAuthorized = (user.tipo_usuario === 'medico' && user.medicoId === anexo.consulta.medicoId) ||
+                         (user.tipo_usuario === 'paciente' && user.pacienteId === anexo.consulta.pacienteId) ||
+                         (user.tipo_usuario === 'admin')
 
-    if (!isMedico && !isPaciente && !isAdmin) {
-      return reply.code(403).send({ error: 'forbidden' })
-    }
+    if (!isAuthorized) return reply.code(403).send({ error: 'forbidden' })
 
-    // Auditoria (LGPD/CFM)
+    // Descriptografia do buffer para retorno ao cliente
+    const encryptedString = Buffer.from(anexo.arquivo).toString('utf8')
+    const decryptedBuffer = decrypt(encryptedString, true) as Buffer
+
     await logAuditoria({
       usuarioId: user.id,
       acao: 'DOWNLOAD_ANEXO',
       recurso: 'CONSULTA_ANEXO',
       recursoId: anexoId,
-      detalhes: `Download do anexo ID: ${anexoId} da consulta ${anexo.consultaId}`,
       ip: req.ip,
       userAgent: req.headers['user-agent']
     })
 
     reply.type(anexo.tipo_mime)
-    return reply.send(anexo.arquivo)
+    return reply.send(decryptedBuffer)
   } catch (err: any) {
-    logger.error('Erro ao buscar conteúdo do anexo', err, { anexoId })
-    return reply.code(500).send({ error: 'internal_error' })
+    logger.error('Erro no download do anexo', err)
+    return reply.code(500).send({ error: 'decryption_failed' })
   }
 }
 

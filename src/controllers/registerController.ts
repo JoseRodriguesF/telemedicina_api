@@ -4,13 +4,14 @@ import { z } from 'zod'
 import ApiError from '../utils/apiError'
 import { generateJWT } from '../utils/security'
 import logger from '../utils/logger'
+import { logAuditoria } from '../utils/auditLogger'
 
 const registerService = new RegisterService()
 
 // Schemas de validação com Zod
 const registerAccessSchema = z.object({
   email: z.string().email('Email inválido'),
-  senha: z.string().min(6, 'Senha deve ter pelo menos 6 caracteres'),
+  senha: z.string().min(8, 'Senha deve ter pelo menos 8 caracteres (OWASP Recomendation)'),
   tipo_usuario: z.enum(['medico', 'paciente'])
 })
 
@@ -57,6 +58,17 @@ export class RegisterController {
     try {
       const { email, senha, tipo_usuario } = registerAccessSchema.parse(request.body)
       const user = await registerService.createUser(email, senha, tipo_usuario)
+      
+      // LGPD/CFM: Auditoria de criação de conta
+      await logAuditoria({
+        usuarioId: user.id,
+        acao: 'CRIACAO_CONTA',
+        recurso: 'usuario',
+        detalhes: `Conta do tipo '${tipo_usuario}' criada via registro direto.`,
+        ip: request.ip,
+        userAgent: request.headers['user-agent']
+      });
+
       reply.send({ message: 'Dados de acesso registrados com sucesso', userId: user.id })
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -92,6 +104,17 @@ export class RegisterController {
         email: usuario.email,
         tipo_usuario: usuario.tipo_usuario
       })
+
+      // Auditoria: Perfil de Paciente completo
+      await logAuditoria({
+        usuarioId: usuario.id,
+        acao: 'CADASTRO_PERFIL_PACIENTE',
+        recurso: 'paciente',
+        recursoId: paciente.id,
+        detalhes: 'Perfil completo de paciente registrado com aceite de TCLE.',
+        ip: request.ip,
+        userAgent: request.headers['user-agent']
+      });
 
       reply.send({
         message: 'Dados pessoais registrados com sucesso. Cadastro completo!',
@@ -131,6 +154,17 @@ export class RegisterController {
         email: usuario.email,
         tipo_usuario: usuario.tipo_usuario
       })
+
+      // Auditoria: Perfil de Médico completo (CFM/CRM)
+      await logAuditoria({
+        usuarioId: usuario.id,
+        acao: 'CADASTRO_PERFIL_MEDICO',
+        recurso: 'medico',
+        recursoId: medico.id,
+        detalhes: `Registro de médico (CRM ${data.crm}/${data.crm_uf}) solicitado para análise.`,
+        ip: request.ip,
+        userAgent: request.headers['user-agent']
+      });
 
       reply.send({
         message: 'Dados pessoais do médico registrados com sucesso. Cadastro completo!',

@@ -22,8 +22,6 @@ export async function openaiRoutes(fastify: FastifyInstance) {
     url: '/chat-ia/transcrever',
     preHandler: authenticateJWT,
     handler: transcreverConsultaController,
-    config: {
-      bodyLimit: 50 * 1024 * 1024 // 50MB para áudios longos
-    }
+    bodyLimit: 50 * 1024 * 1024, // 50MB para áudios longos
   })
 }

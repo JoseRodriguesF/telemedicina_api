@@ -6,8 +6,42 @@ export async function getConsultaById(id: number) {
   return prisma.consulta.findUnique({ where: { id } })
 }
 
+export function sanitizeHistoriaClinica(content: string | null | undefined): string {
+  if (!content) return '';
+  
+  // Se o conteúdo for um JSON de triagem, extraímos os campos relevantes para o médico
+  if (content.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(content);
+      // Se tiver queixa_principal (formato de triagem novo), reconstrói um resumo clínico
+      if (parsed.queixa_principal) {
+        let summary = `### **QUEIXA PRINCIPAL**\n${parsed.queixa_principal}\n\n`;
+        if (parsed.descricao_sintomas) summary += `### **SINTOMAS**\n${parsed.descricao_sintomas}\n\n`;
+        if (parsed.historico_medico) summary += `### **HISTÓRICO MÉDICO**\n${parsed.historico_medico}\n\n`;
+        if (parsed.medicamentos_uso) summary += `### **MEDICAMENTOS EM USO**\n${parsed.medicamentos_uso}\n\n`;
+        if (parsed.alergias) summary += `### **ALERGIAS**\n${parsed.alergias}\n\n`;
+        return summary.trim();
+      }
+      // Se tiver campo 'conteudo' genérico
+      if (parsed.conteudo) return parsed.conteudo;
+      if (parsed.resumo) return parsed.resumo;
+    } catch (e) {
+      // Falha no parse, trata como string comum
+    }
+  }
+
+  // Regex para remover campos administrativos comuns de sistemas legados ou triagens técnicas
+  return content
+    .replace(/ID do Pedido: \d+/gi, '')
+    .replace(/Status da Triagem: \w+/gi, '')
+    .replace(/Prioridade Técnica: \w+/gi, '')
+    .replace(/Responsável pela triagem: .+/gi, '')
+    .replace(/\n{3,}/g, '\n\n') // Remove quebras de linha excessivas
+    .trim();
+}
+
 export async function getConsultaWithPatient(id: number) {
-  return prisma.consulta.findUnique({
+  const consulta = await prisma.consulta.findUnique({
     where: { id },
     include: {
       paciente: {
@@ -29,7 +63,20 @@ export async function getConsultaWithPatient(id: number) {
       },
       historiaClinica: true
     }
-  })
+  });
+
+  if (consulta && consulta.historiaClinica) {
+    if (Array.isArray(consulta.historiaClinica)) {
+      (consulta as any).historiaClinica = (consulta.historiaClinica as any[]).map(h => ({
+        ...h,
+        conteudo: sanitizeHistoriaClinica(h.conteudo)
+      }));
+    } else {
+      (consulta.historiaClinica as any).conteudo = sanitizeHistoriaClinica((consulta.historiaClinica as any).conteudo);
+    }
+  }
+
+  return consulta;
 }
 
 export async function updateConsultaStatus(id: number, status: ConsultaStatus) {

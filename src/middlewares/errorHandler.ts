@@ -2,8 +2,8 @@ import { FastifyError, FastifyReply, FastifyRequest } from 'fastify'
 import logger from '../utils/logger'
 
 /**
- * Middleware global de tratamento de erros
- * Garante respostas consistentes e logging adequado
+ * Middleware global de tratamento de erros - HARDENED
+ * Garante respostas consistentes e NUNCA vaza detalhes técnicos (Stack Traces).
  */
 export function errorHandler(
     error: FastifyError,
@@ -12,36 +12,28 @@ export function errorHandler(
 ) {
     const { method, url } = request
 
-    // Log do erro
-    logger.error('Request error', error, {
+    // Log interno detalhado (Seguro: apenas o administrador vê no log)
+    logger.error('Request error captured by global handler', {
         method,
         url,
         statusCode: error.statusCode || 500,
-        errorCode: error.code
+        errorCode: error.code,
+        errorMessage: error.message,
+        stack: error.stack // O stack trace fica apenas no log interno
     })
 
     // Determinar status code
     const statusCode = error.statusCode || 500
 
-    // Resposta padronizada
+    // Resposta padronizada OPACA (Segurança: O atacante não vê o stack)
     const response: {
         error: string
         message?: string
-        details?: string
         statusCode: number
     } = {
         error: error.code || 'INTERNAL_ERROR',
+        message: statusCode === 500 ? 'Um erro interno ocorreu. O incidente foi reportado aos administradores.' : error.message,
         statusCode
-    }
-
-    // Adicionar mensagem se disponível
-    if (error.message) {
-        response.message = error.message
-    }
-
-    // Em desenvolvimento, adicionar stack trace
-    if (process.env.NODE_ENV === 'development' && error.stack) {
-        response.details = error.stack
     }
 
     reply.status(statusCode).send(response)

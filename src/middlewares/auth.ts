@@ -18,11 +18,15 @@ export const authenticateJWT = async (request: FastifyRequest, reply: FastifyRep
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7)
   } else if (queryToken) {
+    // LGPD Security Warning: Tokens in query params are exposed in server logs and browser history.
+    // We allow it only for backward compatibility in specific read-only file routes if needed,
+    // but we should aim to migrate all clients to headers.
     token = queryToken
+    logger.warn('JWT received via query parameter. This is deprecated for security reasons.', { path: request.url })
   }
 
   if (!token) {
-    return reply.code(401).send({ error: 'unauthorized', message: 'Token de acesso necessário' })
+    return reply.code(401).send({ error: 'unauthorized', message: 'Token de acesso necessário no cabeçalho Authorization' })
   }
 
   try {

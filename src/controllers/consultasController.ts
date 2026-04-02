@@ -11,6 +11,9 @@ import {
 import { Rooms } from '../utils/rooms'
 import prisma from '../config/database'
 import logger from '../utils/logger'
+import { logAuditoria } from '../utils/auditLogger'
+import { encrypt, decrypt } from '../utils/encryption'
+import { sanitize } from '../utils/sanitizer'
 import {
   getIceServersWithFallback,
   validateNumericId,
@@ -45,17 +48,39 @@ export async function createOrGetRoom(req: RequestWithNumericId, reply: FastifyR
   if (!validation.valid) return reply.code(400).send(validation.error!)
 
   const id = validation.numericId!
-  const consulta = await getConsultaById(id)
+  const consulta = await prisma.consulta.findUnique({
+    where: { id },
+    include: { paciente: true }
+  })
+  
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
   const user = req.user as AuthenticatedUser
   if (!checkAuth(user, consulta)) return reply.code(403).send({ error: 'forbidden' })
+
+  // CONFORMIDADE CFM Res. 2.314/2022: O paciente DEVE aceitar o TCLE antes de iniciar a consulta.
+  if (!consulta.paciente.aceitouTCLE) {
+    return reply.code(403).send({ 
+      error: 'tcle_required', 
+      message: 'O paciente deve aceitar o Termo de Consentimento Livre e Esclarecido antes de iniciar o atendimento.' 
+    })
+  }
 
   const { roomId, created } = Rooms.createOrGet(id)
   const iceServers = await getIceServersWithFallback()
 
   if (created && ['scheduled', 'agendada', 'solicitada'].includes(consulta.status)) {
     await updateConsultaStatus(id, 'in_progress')
+    
+    // LGPD/CFM: Log de início de atendimento
+    await logAuditoria({
+      usuarioId: user.id,
+      acao: 'INICIO_ATENDIMENTO_VIRTUAL',
+      recurso: 'consulta',
+      recursoId: id,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
   }
 
   return reply.send({ roomId, iceServers })
@@ -72,12 +97,26 @@ export async function getConsultaDetails(req: RequestWithNumericId, reply: Fasti
   const user = req.user as AuthenticatedUser
   if (!checkAuth(user, consulta)) return reply.code(403).send({ error: 'forbidden' })
 
-  // Mapeia 'resumo' (campo do banco) para 'resumo_consulta' e o Remove da resposta para pacientes
-  const { resumo, ...rest } = consulta as any
+  // LGPD: Descriptografar dados sensíveis de saúde para visualização
   const isMedico = user.tipo_usuario === 'medico'
+  
+  const decryptedConsulta = {
+    ...consulta,
+    resumo: consulta.resumo ? decrypt(consulta.resumo) : null,
+    diagnostico: consulta.diagnostico ? decrypt(consulta.diagnostico) : null,
+    evolucao: consulta.evolucao ? decrypt(consulta.evolucao) : null,
+    plano_terapeutico: consulta.plano_terapeutico ? decrypt(consulta.plano_terapeutico) : null,
+    paciente: consulta.paciente ? {
+      ...consulta.paciente,
+      notas: consulta.paciente.notas ? decrypt(consulta.paciente.notas) : null
+    } : null
+  }
+
+  // Mapeia 'resumo' para 'resumo_consulta' e Remove da resposta para pacientes conforme lógica de negócio
+  const { resumo, ...rest } = decryptedConsulta as any
   const response = isMedico
     ? { ...rest, resumo_consulta: resumo ?? null }
-    : rest // paciente não recebe o campo
+    : rest // paciente não recebe o campo 'resumo' (anamnese privada do médico)
 
   return reply.send(response)
 }
@@ -114,9 +153,12 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(id)
   Rooms.end(roomId)
 
-  const { hora_fim, repouso, destino_final, especialidade_seguimento, diagnostico, evolucao, plano_terapeutico, endereco_ambulancia, resumo_consulta } = (req.body as any) || {}
+  const { 
+    hora_fim, repouso, destino_final, especialidade_seguimento, 
+    diagnostico, evolucao, plano_terapeutico, endereco_ambulancia, resumo_consulta 
+  } = (req.body as any) || {}
 
-  // O resumo da consulta é exclusivo para médicos — apenas o médico da consulta pode gravá-lo
+  // OWASP/LGPD: Sanitização e Criptografia dos campos sensíveis antes de salvar
   const shouldSaveResumo = user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId
 
   await prisma.consulta.update({
@@ -124,19 +166,33 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
     data: {
       status: 'finished',
       hora_fim: hora_fim ? new Date(`1970-01-01T${hora_fim}`) : new Date(),
-      repouso,
-      destino_final,
-      diagnostico,
-      evolucao,
-      plano_terapeutico,
-      especialidade_seguimento,
-      ambulancia_endereco: endereco_ambulancia?.endereco,
-      ambulancia_complemento: endereco_ambulancia?.complemento,
-      ambulancia_info: endereco_ambulancia?.informacoes_adicionais,
-      ambulancia_telefone: endereco_ambulancia?.telefone,
-      ...(shouldSaveResumo && resumo_consulta !== undefined ? { resumo: resumo_consulta } : {})
+      repouso: sanitize(repouso),
+      destino_final: sanitize(destino_final),
+      diagnostico: encrypt(sanitize(diagnostico) || ''),
+      evolucao: encrypt(sanitize(evolucao) || ''),
+      plano_terapeutico: encrypt(sanitize(plano_terapeutico) || ''),
+      especialidade_seguimento: sanitize(especialidade_seguimento),
+      ambulancia_endereco: sanitize(endereco_ambulancia?.endereco),
+      ambulancia_complemento: sanitize(endereco_ambulancia?.complemento),
+      ambulancia_info: sanitize(endereco_ambulancia?.informacoes_adicionais),
+      ambulancia_telefone: sanitize(endereco_ambulancia?.telefone),
+      ...(shouldSaveResumo && resumo_consulta !== undefined 
+        ? { resumo: encrypt(sanitize(resumo_consulta) || '') } 
+        : {})
     } as Prisma.ConsultaUpdateInput
   })
+
+  // CFM: Auditoria imutável do encerramento da consulta
+  await logAuditoria({
+    usuarioId: user.id,
+    acao: 'ENCERRAMENTO_CONSULTA',
+    recurso: 'consulta',
+    recursoId: id,
+    detalhes: 'Atendimento finalizado com sucesso.',
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
+
   return reply.send({ ok: true })
 }
 
@@ -194,6 +250,16 @@ export async function agendarConsulta(
   if (!validation.valid || !paciente_id) return reply.code(400).send(validation.error || { error: 'invalid_paciente_id' })
 
   const pacienteId = validation.numericId!
+  
+  // CONFORMIDADE CFM: Verificar TCLE antes de permitir agendamento
+  const paciente = await prisma.paciente.findUnique({ where: { id: pacienteId } })
+  if (!paciente || !paciente.aceitouTCLE) {
+    return reply.code(403).send({ 
+       error: 'tcle_required', 
+       message: 'O paciente precisa aceitar o Termo de Consentimento (TCLE) para agendar consultas.' 
+    })
+  }
+
   const medicoId = medico_id ? Number(medico_id) : null
 
   if (medicoId) {
@@ -222,6 +288,16 @@ export async function agendarConsulta(
         data: { consultaId: consulta.id }
       })
     }
+
+    // Auditoria: Agendamento de consulta
+    await logAuditoria({
+      usuarioId: user.id,
+      acao: 'SOLICITACAO_AGENDAMENTO',
+      recurso: 'consulta',
+      recursoId: consulta.id,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
 
     return reply.send({ ok: true, consulta })
   } catch (err: any) {
@@ -287,9 +363,23 @@ export async function confirmarConsulta(req: RequestWithNumericId, reply: Fastif
   }
 
   const user = req.user as AuthenticatedUser
-  // Opcional: Adicionar lógica de permissão aqui se necessário (ex: apenas o médico ou admin)
+  // BAC: Apenas o médico ou admin podem confirmar uma consulta
+  if (!checkAuth(user, consulta) || user.tipo_usuario === 'paciente') {
+    return reply.code(403).send({ error: 'forbidden' })
+  }
 
   const updated = await updateConsultaStatus(id, 'agendada')
+  
+  // Auditoria
+  await logAuditoria({
+    usuarioId: user.id,
+    acao: 'CONFIRMACAO_AGENDAMENTO',
+    recurso: 'consulta',
+    recursoId: id,
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
+  })
+
   return reply.send({ ok: true, consulta: updated })
 }
 
@@ -377,7 +467,20 @@ export async function updatePacienteNotas(req: RequestWithNumericId, reply: Fast
 
   await prisma.paciente.update({
     where: { id: consulta.pacienteId },
-    data: { notas }
+    data: { 
+      notas: encrypt(sanitize(notas) || '') 
+    }
+  })
+
+  // Auditoria: Acesso e edição de prontuário (Paciente.notas)
+  await logAuditoria({
+    usuarioId: user.id,
+    acao: 'EDICAO_NOTAS_PACIENTE',
+    recurso: 'paciente',
+    recursoId: consulta.pacienteId,
+    detalhes: 'Notas do paciente editadas pelo médico.',
+    ip: req.ip,
+    userAgent: req.headers['user-agent']
   })
 
   return reply.send({ ok: true })

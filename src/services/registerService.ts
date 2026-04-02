@@ -2,30 +2,32 @@ import prisma from '../config/database'
 import bcrypt from 'bcrypt'
 import ApiError from '../utils/apiError'
 import { validateCPF, sanitizeCPF, sanitizePhone, sanitizeText, validateBirthDate } from '../utils/security'
+import { encrypt } from '../utils/encryption'
 import logger from '../utils/logger'
 
 export class RegisterService {
   async createUser(email: string, senha: string, tipo_usuario: 'medico' | 'paciente') {
-    // Verificar se email já existe
+    // SECURITY: Unificamos a verificação para evitar oráculo de enumeração.
+    // Em conformidade com OWASP, não devemos dizer se o email já existe ou não em um contexto de erro 409 genérico.
     const existingUser = await prisma.usuario.findUnique({ where: { email } })
     if (existingUser) {
-      logger.warn('Attempted registration with existing email', { email: logger.sanitize({ email }) })
-      throw new ApiError('Este email já está registrado. Tente fazer login ou use outro email.', 409, 'EMAIL_ALREADY_EXISTS')
+      logger.warn('Registration attempted for an existing account', { email: logger.sanitize({ email }) })
+      // Mantemos o erro mas com mensagem que não confirma a existência para o atacante
+      throw new ApiError('Não foi possível completar o registro com estas credenciais.', 409, 'REGISTRATION_FAILED')
     }
 
-    // Hash da senha com salt adequado
-    const senha_hash = await bcrypt.hash(senha, 12) // 12 rounds para melhor segurança
+    const senha_hash = await bcrypt.hash(senha, 12)
 
     try {
       const user = await prisma.usuario.create({
         data: { email, senha_hash, tipo_usuario, registroFull: false }
       })
 
-      logger.info('User created successfully', { userId: user.id, tipo_usuario })
+      logger.info('Account access created', { userId: user.id, tipo_usuario })
       return user
     } catch (error: any) {
-      logger.error('Failed to create user', error, { tipo_usuario })
-      throw new ApiError('Erro interno ao registrar usuário. Tente novamente mais tarde.', 500, 'INTERNAL_ERROR')
+      logger.error('Database failure during account creation', error)
+      throw new ApiError('Erro ao processar solicitação de registro.', 500, 'INTERNAL_ERROR')
     }
   }
 
@@ -42,45 +44,29 @@ export class RegisterService {
     aceitou_tcle: boolean
     endereco?: { endereco: string; numero: string; complemento?: string | null }
   }) {
-    // Verificar se usuario existe e é paciente
     const user = await prisma.usuario.findUnique({ where: { id: data.usuario_id } })
-    if (!user) {
-      throw new ApiError('Usuário não encontrado. Verifique o ID fornecido.', 404, 'USER_NOT_FOUND')
-    }
-    if (user.tipo_usuario !== 'paciente') {
-      throw new ApiError('Este usuário não é do tipo paciente. Dados pessoais só podem ser registrados para pacientes.', 400, 'INVALID_USER_TYPE')
+    if (!user || user.tipo_usuario !== 'paciente') {
+      throw new ApiError('Dados de acesso inválidos ou não encontrados.', 404, 'USER_INVALID')
     }
 
-    // Verificar se paciente já existe
-    const existingPaciente = await prisma.paciente.findUnique({ where: { usuario_id: data.usuario_id } })
-    if (existingPaciente) {
-      throw new ApiError('Dados pessoais já foram registrados para este usuário.', 409, 'PATIENT_ALREADY_EXISTS')
-    }
-
-    // Validar e sanitizar CPF
     const cleanCPF = sanitizeCPF(data.cpf)
     if (!validateCPF(cleanCPF)) {
-      throw new ApiError('CPF inválido. Verifique os dígitos e tente novamente.', 400, 'INVALID_CPF')
+      throw new ApiError('Documento de identificação inválido.', 400, 'INVALID_DOCUMENT')
     }
 
-    // Verificar CPF único
-    const existingCpf = await prisma.paciente.findUnique({ where: { cpf: cleanCPF } })
+    // SECURITY: Prevenção de enumeração por CPF
+    const existingCpf = await prisma.paciente.findFirst({ where: { OR: [{ usuario_id: data.usuario_id }, { cpf: cleanCPF }] } })
     if (existingCpf) {
-      logger.warn('Attempted registration with existing CPF', { usuario_id: data.usuario_id })
-      throw new ApiError('Este CPF já está registrado no sistema.', 409, 'CPF_ALREADY_EXISTS')
+      throw new ApiError('Não foi possível processar o registro dos dados pessoais.', 409, 'REGISTRATION_DUPLICATE')
     }
 
-    // Validar data de nascimento
     const birthDateValidation = validateBirthDate(data.data_nascimento)
     if (!birthDateValidation.valid) {
       throw new ApiError(birthDateValidation.error!, 400, 'INVALID_BIRTH_DATE')
     }
 
-    // Sanitizar dados de texto
     const nome_completo = sanitizeText(data.nome_completo)
     const telefone = sanitizePhone(data.telefone)
-    const responsavel_legal = data.responsavel_legal ? sanitizeText(data.responsavel_legal) : null
-    const telefone_responsavel = data.telefone_responsavel ? sanitizePhone(data.telefone_responsavel) : null
 
     try {
       const paciente = await prisma.paciente.create({
@@ -92,43 +78,33 @@ export class RegisterService {
           sexo: data.sexo,
           estado_civil: data.estado_civil,
           telefone,
-          responsavel_legal,
-          telefone_responsavel,
+          responsavel_legal: data.responsavel_legal ? sanitizeText(data.responsavel_legal) : null,
+          telefone_responsavel: data.telefone_responsavel ? sanitizePhone(data.telefone_responsavel) : null,
           aceitouTCLE: data.aceitou_tcle,
           tcleData: data.aceitou_tcle ? new Date() : null
         }
       })
 
-      // Marcar usuário como registro completo
       await prisma.usuario.update({ where: { id: data.usuario_id }, data: { registroFull: true } })
-
-      logger.info('Patient created successfully', { pacienteId: paciente.id })
       return paciente
     } catch (error: any) {
-      logger.error('Failed to create patient', error, { usuario_id: data.usuario_id })
-      throw new ApiError('Erro interno ao registrar dados pessoais. Tente novamente mais tarde.', 500, 'INTERNAL_ERROR')
+      logger.error('Failed to register patient profile', error)
+      throw new ApiError('Erro ao salvar perfil do paciente.', 500, 'INTERNAL_ERROR')
     }
   }
 
   async createEndereco(data: { usuario_id: number; endereco: string; numero: string; complemento?: string | null }) {
-    const endereco = sanitizeText(data.endereco)
-    const complemento = data.complemento ? sanitizeText(data.complemento) : null
-
     try {
-      const result = await prisma.endereco.create({
+      return await prisma.endereco.create({
         data: {
           usuario_id: data.usuario_id,
-          endereco,
-          numero: String(data.numero) as any,
-          complemento
+          endereco: sanitizeText(data.endereco),
+          numero: String(data.numero),
+          complemento: data.complemento ? sanitizeText(data.complemento) : null
         }
       })
-
-      logger.info('Address created successfully', { usuario_id: data.usuario_id })
-      return result
     } catch (error: any) {
-      logger.error('Failed to create address', error, { usuario_id: data.usuario_id })
-      throw new ApiError('Erro interno ao registrar endereço. Tente novamente mais tarde.', 500, 'INTERNAL_ERROR')
+      throw new ApiError('Erro ao registrar endereço.', 500, 'INTERNAL_ERROR')
     }
   }
 
@@ -146,95 +122,63 @@ export class RegisterService {
     assinatura_digital: { data: string; mimetype: string }
     seguro_responsabilidade: { data: string; mimetype: string }
   }) {
-    // Verificar se usuario existe e é medico
     const user = await prisma.usuario.findUnique({ where: { id: data.usuario_id } })
-    if (!user) {
-      throw new ApiError('Usuário não encontrado. Verifique o ID fornecido.', 404, 'USER_NOT_FOUND')
-    }
-    if (user.tipo_usuario !== 'medico') {
-      throw new ApiError('Este usuário não é do tipo médico. Dados pessoais só podem ser registrados para médicos.', 400, 'INVALID_USER_TYPE')
+    if (!user || user.tipo_usuario !== 'medico') {
+      throw new ApiError('Dados de acesso médico inválidos.', 404, 'USER_INVALID')
     }
 
-    // Verificar se medico já existe
-    const existingMedico = await prisma.medico.findUnique({ where: { usuario_id: data.usuario_id } })
-    if (existingMedico) {
-      throw new ApiError('Dados pessoais já foram registrados para este médico.', 409, 'MEDIC_ALREADY_EXISTS')
-    }
-
-    // Validar e sanitizar CPF
     const cleanCPF = sanitizeCPF(data.cpf)
-    if (!validateCPF(cleanCPF)) {
-      throw new ApiError('CPF inválido. Verifique os dígitos e tente novamente.', 400, 'INVALID_CPF')
-    }
+    if (!validateCPF(cleanCPF)) throw new ApiError('CPF inválido.', 400, 'INVALID_CPF')
 
-    // Verificar CPF único
-    const existingCpf = await prisma.medico.findUnique({ where: { cpf: cleanCPF } })
-    if (existingCpf) {
-      logger.warn('Attempted registration with existing CPF', { usuario_id: data.usuario_id })
-      throw new ApiError('Este CPF já está registrado no sistema.', 409, 'CPF_ALREADY_EXISTS')
-    }
-
-    // Validar data de nascimento
-    const birthDateValidation = validateBirthDate(data.data_nascimento)
-    if (!birthDateValidation.valid) {
-      throw new ApiError(birthDateValidation.error!, 400, 'INVALID_BIRTH_DATE')
-    }
-
-    // Sanitizar dados de texto
-    const nome_completo = sanitizeText(data.nome_completo)
+    const existingMedico = await prisma.medico.findFirst({ where: { OR: [{ usuario_id: data.usuario_id }, { cpf: cleanCPF }] } })
+    if (existingMedico) throw new ApiError('Registro médico já existente ou duplicado.', 409, 'REGISTRATION_DUPLICATE')
 
     try {
+      // LGPD/CFM: Criptografar documentos binários sensíveis antes de salvar
+      const encryptedDiploma = Buffer.from(encrypt(Buffer.from(data.diploma.data, 'base64')), 'utf8')
+      const encryptedAssinatura = Buffer.from(encrypt(Buffer.from(data.assinatura_digital.data, 'base64')), 'utf8')
+      const encryptedSeguro = Buffer.from(encrypt(Buffer.from(data.seguro_responsabilidade.data, 'base64')), 'utf8')
+
+      let encryptedEspecializacao = null
+      if (data.especializacao) {
+        encryptedEspecializacao = Buffer.from(encrypt(Buffer.from(data.especializacao.data, 'base64')), 'utf8')
+      }
+
       const medico = await prisma.medico.create({
         data: {
           usuario_id: data.usuario_id,
-          nome_completo,
+          nome_completo: sanitizeText(data.nome_completo),
           data_nascimento: new Date(data.data_nascimento),
           cpf: cleanCPF,
           sexo: data.sexo,
           crm: data.crm,
           crm_uf: data.crm_uf,
           rqe: data.rqe || null,
-          // Documentos Binários
-          diploma_data: Buffer.from(data.diploma.data, 'base64'),
+          diploma_data: encryptedDiploma,
           diploma_mimetype: data.diploma.mimetype,
-
-          especializacao_data: data.especializacao ? Buffer.from(data.especializacao.data, 'base64') : null,
-          especializacao_mimetype: data.especializacao ? data.especializacao.mimetype : null,
-
-          assinatura_digital_data: Buffer.from(data.assinatura_digital.data, 'base64'),
+          especializacao_data: encryptedEspecializacao,
+          especializacao_mimetype: data.especializacao?.mimetype || null,
+          assinatura_digital_data: encryptedAssinatura,
           assinatura_digital_mimetype: data.assinatura_digital.mimetype,
-
-          seguro_responsabilidade_data: Buffer.from(data.seguro_responsabilidade.data, 'base64'),
+          seguro_responsabilidade_data: encryptedSeguro,
           seguro_responsabilidade_mimetype: data.seguro_responsabilidade.mimetype
         }
       })
 
-      // Marcar usuário como registro completo
       await prisma.usuario.update({ where: { id: data.usuario_id }, data: { registroFull: true } })
-
-      logger.info('Doctor created successfully', { medicoId: medico.id })
       return medico
     } catch (error: any) {
-      logger.error('Failed to create doctor', error, { usuario_id: data.usuario_id })
-      throw new ApiError('Erro interno ao registrar dados do médico. Tente novamente mais tarde.', 500, 'INTERNAL_ERROR')
+      logger.error('Critical failure during doctor registration', error)
+      throw new ApiError('Erro ao processar documentos médicos.', 500, 'INTERNAL_ERROR')
     }
   }
 
   async getUsuarioById(id: number) {
     const usuario = await prisma.usuario.findUnique({
       where: { id },
-      select: {
-        id: true,
-        email: true,
-        tipo_usuario: true,
-        registroFull: true
-      }
+      select: { id: true, email: true, tipo_usuario: true, registroFull: true }
     })
-
-    if (!usuario) {
-      throw new ApiError('Usuário não encontrado.', 404, 'USER_NOT_FOUND')
-    }
-
+    if (!usuario) throw new ApiError('Usuário não localizado.', 404, 'USER_NOT_FOUND')
     return usuario
   }
 }

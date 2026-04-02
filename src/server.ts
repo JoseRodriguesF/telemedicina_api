@@ -1,6 +1,9 @@
 import Fastify from 'fastify'
 import prisma from './config/database'
 import dotenv from 'dotenv'
+import helmet from '@fastify/helmet'
+import cors from '@fastify/cors'
+import rateLimit from '@fastify/rate-limit'
 import { appRoutes } from './routes/index'
 import { initSignalServer } from './server-signal'
 import logger from './utils/logger'
@@ -11,7 +14,41 @@ dotenv.config()
 // Garantir que o servidor utilize o fuso horário local de Brasília para sincronização
 process.env.TZ = 'America/Sao_Paulo';
 
-const server = Fastify({ logger: false }) // Desativar logger padrão do Fastify
+const server = Fastify({ 
+  logger: false,
+  trustProxy: true // Essencial para rate limiting atrás de um balanceador/proxy
+})
+
+// Hardening 1: Helmet para proteção contra Clickjacking, XSS e Sniffing
+server.register(helmet, {
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "blob:"],
+      connectSrc: ["'self'", "wss:", "https://api.openai.com"]
+    }
+  }
+})
+
+// Hardening 2: CORS restrito (Em produção, trocar * pelo domínio específico)
+server.register(cors, {
+  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+})
+
+// Hardening 3: Rate Limit para proteção contra Brute Force e DoS
+server.register(rateLimit, {
+  max: 100,
+  timeWindow: '1 minute',
+  errorResponseBuilder: () => ({
+    error: 'too_many_requests',
+    message: 'Limite de requisições excedido. Tente novamente em alguns instantes.'
+  })
+})
 
 // Registrar middleware de erro
 server.setErrorHandler(errorHandler)

@@ -12,13 +12,13 @@ function getJwtSecret(): string {
 }
 
 /**
- * Gera um JWT para o usuário
+ * Gera um JWT para o usuário com expiração curta para segurança médica.
  */
 export function generateJWT(payload: { id: number; email: string; tipo_usuario: string }): string {
     return jwt.sign(
         payload,
         getJwtSecret(),
-        { expiresIn: '7d', algorithm: 'HS256' }
+        { expiresIn: '1h', algorithm: 'HS256' }
     )
 }
 
