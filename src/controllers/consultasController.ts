@@ -140,65 +140,91 @@ export async function listParticipants(req: RequestWithNumericId, reply: Fastify
 }
 
 export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply) {
-  const validation = validateNumericId(req.params.id, 'consulta_id')
-  if (!validation.valid) return reply.code(400).send(validation.error!)
+  try {
+    const validation = validateNumericId(req.params.id, 'consulta_id')
+    if (!validation.valid) return reply.code(400).send(validation.error!)
 
-  const id = validation.numericId!
-  const consulta = await getConsultaById(id)
-  if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+    const id = validation.numericId!
+    const consulta = await getConsultaById(id)
+    if (!id || !consulta) return reply.code(404).send({ error: 'consulta_not_found' })
 
-  const user = req.user as AuthenticatedUser
-  if (!checkAuth(user, consulta)) return reply.code(403).send({ error: 'forbidden' })
+    const user = req.user as AuthenticatedUser
+    if (!checkAuth(user, consulta)) return reply.code(403).send({ error: 'forbidden' })
 
-  const { roomId } = Rooms.createOrGet(id)
-  Rooms.end(roomId)
+    // Encerrar a sala de vídeo/WebRTC
+    const { roomId } = Rooms.createOrGet(id)
+    Rooms.end(roomId)
 
-  // O frontend envia os dados diretamente no body ou dentro de um objeto dependendo da rota
-  // No atendimento/page.tsx, os campos estão na raiz do payload enviado para endConsulta(cid, token, hora_fim, atendimentoData)
-  const body = (req.body as any) || {}
-  const { 
-    hora_fim, repouso, destino_final, especialidade_seguimento, 
-    diagnostico, evolucao, plano_terapeutico, endereco_ambulancia, resumo_consulta 
-  } = body
+    // Payload enviado pelo frontend (atendimento/page.tsx + axios/consultas.ts)
+    const body = (req.body as any) || {}
+    const { 
+      hora_fim, repouso, destino_final, especialidade_seguimento, 
+      diagnostico, evolucao, plano_terapeutico, resumo_consulta,
+      // O frontend desestrutura endereco_ambulancia em campos planos antes de enviar
+      ambulancia_endereco, ambulancia_complemento, ambulancia_info, ambulancia_telefone,
+      endereco_ambulancia // Fallback caso venha como objeto
+    } = body
 
-  // OWASP/LGPD: Sanitização e Criptografia dos campos sensíveis antes de salvar
-  const isResponsavel = user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId
-  const isAdmin = user.tipo_usuario === 'admin'
+    // OWASP/LGPD: Sanitização e Criptografia dos campos sensíveis antes de salvar
+    const isResponsavel = user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId
+    const isAdmin = user.tipo_usuario === 'admin'
 
-  await prisma.consulta.update({
-    where: { id },
-    data: {
-      status: 'finished',
-      hora_fim: hora_fim ? new Date(`1970-01-01T${hora_fim}`) : new Date(),
-      repouso: sanitize(repouso),
-      destino_final: sanitize(destino_final),
-      diagnostico: encrypt(sanitize(diagnostico) || ''),
-      evolucao: encrypt(sanitize(evolucao) || ''),
-      plano_terapeutico: encrypt(sanitize(plano_terapeutico) || ''),
-      especialidade_seguimento: sanitize(especialidade_seguimento),
-      ambulancia_endereco: sanitize(endereco_ambulancia?.endereco),
-      ambulancia_complemento: sanitize(endereco_ambulancia?.complemento),
-      ambulancia_info: sanitize(endereco_ambulancia?.informacoes_adicionais),
-      ambulancia_telefone: sanitize(endereco_ambulancia?.telefone),
-      // Salva o resumo da IA na coluna 'resumo'
-      ...((isResponsavel || isAdmin) && resumo_consulta !== undefined 
-        ? { resumo: encrypt(sanitize(resumo_consulta) || '') } 
-        : {})
-    } as Prisma.ConsultaUpdateInput
-  })
+    // Formatação segura de hora_fim para o Prisma (@db.Time)
+    let finalHoraFim = undefined;
+    if (hora_fim) {
+      if (hora_fim.includes('T')) {
+        // Se for um ISO completo, extraímos a parte do tempo
+        finalHoraFim = new Date(hora_fim);
+      } else {
+        // Se for HH:mm:ss, usamos o formato 1970-01-01T como base para o Prisma db.Time
+        finalHoraFim = new Date(`1970-01-01T${hora_fim}Z`);
+      }
+    } else {
+      finalHoraFim = new Date();
+    }
 
-  // CFM: Auditoria imutável do encerramento da consulta
-  await logAuditoria({
-    usuarioId: user.id,
-    acao: 'ENCERRAMENTO_CONSULTA',
-    recurso: 'consulta',
-    recursoId: id,
-    detalhes: 'Atendimento finalizado com sucesso.',
-    ip: req.ip,
-    userAgent: req.headers['user-agent']
-  })
+    await prisma.consulta.update({
+      where: { id },
+      data: {
+        status: 'finished',
+        hora_fim: finalHoraFim,
+        repouso: sanitize(repouso),
+        destino_final: sanitize(destino_final),
+        diagnostico: encrypt(sanitize(diagnostico) || ''),
+        evolucao: encrypt(sanitize(evolucao) || ''),
+        plano_terapeutico: encrypt(sanitize(plano_terapeutico) || ''),
+        especialidade_seguimento: sanitize(especialidade_seguimento),
+        // Mapeamento robusto dos campos de ambulância (objeto ou campos planos)
+        ambulancia_endereco: sanitize(ambulancia_endereco || endereco_ambulancia?.endereco),
+        ambulancia_complemento: sanitize(ambulancia_complemento || endereco_ambulancia?.complemento),
+        ambulancia_info: sanitize(ambulancia_info || endereco_ambulancia?.informacoes_adicionais),
+        ambulancia_telefone: sanitize(ambulancia_telefone || endereco_ambulancia?.telefone),
+        // Salva o resumo da IA na coluna 'resumo' se o usuário for o médico responsável ou admin
+        ...((isResponsavel || isAdmin) && resumo_consulta !== undefined 
+          ? { resumo: encrypt(sanitize(resumo_consulta) || '') } 
+          : {})
+      } as Prisma.ConsultaUpdateInput
+    })
 
-  return reply.send({ ok: true })
+    // CFM: Auditoria imutável do encerramento da consulta
+    await logAuditoria({
+      usuarioId: user.id,
+      acao: 'ENCERRAMENTO_CONSULTA',
+      recurso: 'consulta',
+      recursoId: id,
+      detalhes: 'Atendimento finalizado com sucesso.',
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    })
+
+    return reply.send({ ok: true })
+  } catch (err: any) {
+    logger.error('[ConsultasController] Erro ao encerrar consulta', err, { consultaId: req.params.id })
+    return reply.code(500).send({ 
+       error: 'internal_error',
+       message: 'Houve um erro interno ao processar o encerramento da consulta.'
+    })
+  }
 }
 
 export async function joinRoom(

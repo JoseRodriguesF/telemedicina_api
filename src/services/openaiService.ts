@@ -395,39 +395,53 @@ export async function transcreverConsulta(audioBuffer: Buffer, filename: string)
 }
 
 /**
- * Resume uma transcrição de consulta médica em um formato estruturado para o prontuário
+ * Resume uma transcrição de consulta médica de forma direta e prática ("rústica")
+ * Foca em capturar tudo o que foi falado sem as amarras de uma estrutura rígida.
  */
 export async function resumirTranscricao(transcricao: string) {
+  if (!transcricao || transcricao.trim().length < 10) {
+    return transcricao || '';
+  }
+
   try {
-    const prompt = `Você é um assistente médico especializado em documentação clínica.
-    Sua tarefa é ler a transcrição de uma consulta (diálogo entre médico e paciente) e gerar um resumo técnico estruturado para o prontuário.
+    const prompt = `Você é um assistente especializado em resumir diálogos de telemedicina de forma direta e prática.
+    Sua tarefa é gerar um resumo fiel de TUDO o que foi conversado entre o médico e o paciente, sem se prender a estruturas clínicas rígidas ou excesso de formalismo.
     
     A transcrição é a seguinte:
     """
     ${transcricao}
     """
     
-    Extraia e organize as informações nos seguintes tópicos:
-    1. QUEIXA PRINCIPAL: O motivo primordial da consulta.
-    2. HISTÓRICO DA DOENÇA ATUAL (HDA): Detalhes dos sintomas, início, evolução.
-    3. EXAME FÍSICO (Relatado): O que foi observado ou relatado durante a chamada.
-    4. IMPRESSÃO DIAGNÓSTICA: Hipóteses levantadas pelo médico.
-    5. CONDUTA/PLANO TERAPÊUTICO: Medicamentos prescritos, exames solicitados, orientações e retorno.
+    REGRAS PARA O RESUMO:
+    1. Seja "rústico" e prático: foque no que realmente aconteceu e foi dito.
+    2. Liste as queixas do paciente, as observações do médico e o que foi decidido (prescrições, exames, orientações).
+    3. Se houver informações não estruturadas que pareçam importantes, inclua-as.
+    4. Use Markdown básico (negrito, listas) para facilitar a leitura rápida pelo médico.
+    5. NÃO utilize introduções como "Aqui está o resumo..." ou "A consulta tratou de...". Vá direto ao assunto.
+    6. Se a transcrição for muito curta ou confusa para resumir, retorne exatamente o texto original.
 
-    Responda APENAS com o texto estruturado em Markdown, de forma concisa e profissional.`;
+    Mantenha o tom profissional mas extremamente objetivo.`;
 
     const response = await client.chat.completions.create({
-      model: 'gpt-4o', // Usamos um modelo mais potente para o resumo final
-      temperature: 0.3,
+      model: 'gpt-4o',
+      temperature: 0.5, // Um pouco mais de variação para capturar nuances
       messages: [
-        { role: 'system', content: 'Você é um assistente médico de alto nível. Escreva de forma técnica e objetiva.' },
+        { role: 'system', content: 'Você resume consultas médicas de forma direta, ignorando burocracias e focando no diálogo real.' },
         { role: 'user', content: prompt }
       ]
     });
 
-    return response.choices[0].message.content;
+    const resumo = response.choices[0].message.content;
+    
+    // Fallback: se o resumo for quase vazio ou a IA falhar em gerar algo substantivo
+    if (!resumo || resumo.trim().length < (transcricao.length * 0.1)) {
+       return transcricao;
+    }
+
+    return resumo;
   } catch (error) {
-    console.error('Erro no resumo OpenAI:', error);
-    throw error;
+    console.error('Erro no resumo OpenAI (fallback para transcrição limpa):', error);
+    // Em caso de erro na IA de resumo, retorna a transcrição pura para não perder dados
+    return transcricao;
   }
 }
