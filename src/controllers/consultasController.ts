@@ -153,13 +153,17 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
   const { roomId } = Rooms.createOrGet(id)
   Rooms.end(roomId)
 
+  // O frontend envia os dados diretamente no body ou dentro de um objeto dependendo da rota
+  // No atendimento/page.tsx, os campos estão na raiz do payload enviado para endConsulta(cid, token, hora_fim, atendimentoData)
+  const body = (req.body as any) || {}
   const { 
     hora_fim, repouso, destino_final, especialidade_seguimento, 
     diagnostico, evolucao, plano_terapeutico, endereco_ambulancia, resumo_consulta 
-  } = (req.body as any) || {}
+  } = body
 
   // OWASP/LGPD: Sanitização e Criptografia dos campos sensíveis antes de salvar
-  const shouldSaveResumo = user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId
+  const isResponsavel = user.tipo_usuario === 'medico' && user.medicoId === consulta.medicoId
+  const isAdmin = user.tipo_usuario === 'admin'
 
   await prisma.consulta.update({
     where: { id },
@@ -176,7 +180,8 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
       ambulancia_complemento: sanitize(endereco_ambulancia?.complemento),
       ambulancia_info: sanitize(endereco_ambulancia?.informacoes_adicionais),
       ambulancia_telefone: sanitize(endereco_ambulancia?.telefone),
-      ...(shouldSaveResumo && resumo_consulta !== undefined 
+      // Salva o resumo da IA na coluna 'resumo'
+      ...((isResponsavel || isAdmin) && resumo_consulta !== undefined 
         ? { resumo: encrypt(sanitize(resumo_consulta) || '') } 
         : {})
     } as Prisma.ConsultaUpdateInput
