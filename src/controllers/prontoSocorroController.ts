@@ -4,6 +4,7 @@ import { createConsulta, getConsultaById, claimConsultaByMedico, reconnectConsul
 import prisma from '../config/database'
 import logger from '../utils/logger'
 import { RequestWithUserId, RequestWithConsultaId, AuthenticatedUser } from '../types/shared'
+import { decrypt } from '../utils/encryption'
 import {
   getIceServersWithFallback,
   validateNumericId
@@ -260,8 +261,9 @@ export async function getHistoricoCompleto(req: FastifyRequest, reply: FastifyRe
     const isMedico = user.tipo_usuario === 'medico'
     const result = consultas.map(c => {
       const { resumo, ...rest } = c as any
+      const decryptedResumo = resumo ? (() => { try { return decrypt(resumo) } catch { return null } })() : null
       return isMedico
-        ? { ...rest, resumo_consulta: resumo ?? null }
+        ? { ...rest, resumo_consulta: decryptedResumo ?? null }
         : { ...rest, resumo_consulta: undefined }
     })
 
@@ -382,8 +384,9 @@ export async function searchHistoricoCompleto(req: FastifyRequest, reply: Fastif
     const isMedico = user.tipo_usuario === 'medico'
     const result = consultas.map(c => {
       const { resumo, ...rest } = c as any
+      const decryptedResumo = resumo ? (() => { try { return decrypt(resumo) } catch { return null } })() : null
       return isMedico
-        ? { ...rest, resumo_consulta: resumo ?? null }
+        ? { ...rest, resumo_consulta: decryptedResumo ?? null }
         : { ...rest, resumo_consulta: undefined }
     })
 
