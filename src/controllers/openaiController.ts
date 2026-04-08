@@ -1,5 +1,5 @@
 import { FastifyReply, FastifyRequest } from 'fastify'
-import { chatWithOpenAI, transcreverConsulta, resumirTranscricao } from '../services/openaiService'
+import { chatWithOpenAI, transcreverConsulta, resumirTranscricao, diarizarTranscricao } from '../services/openaiService'
 import prisma from '../config/database'
 import { ChatMessage } from '../services/openaiService'
 import logger from '../utils/logger'
@@ -242,7 +242,7 @@ export async function confirmTriagemController(req: FastifyRequest<{ Body: Confi
 }
 
 /**
- * Recebe o áudio da consulta, transcreve e gera um resumo clínico
+ * Recebe o áudio da consulta, transcreve integralmente e identifica falantes
  */
 export async function transcreverConsultaController(
   req: FastifyRequest<{ Body: { audio: string; filename?: string } }>,
@@ -259,21 +259,53 @@ export async function transcreverConsultaController(
       return reply.code(400).send({ error: 'audio_obrigatorio_base64' })
     }
 
-    logger.info(`Iniciando transcrição de áudio via OpenAI para médico ${user.id}`)
+    logger.info(`Iniciando transcrição integral de áudio via OpenAI para médico ${user.id}`)
     
     const audioBuffer = Buffer.from(audio, 'base64')
-    const transcricao = await transcreverConsulta(audioBuffer, filename || 'consulta.webm')
+    const bruta = await transcreverConsulta(audioBuffer, filename || 'consulta.webm')
     
-    logger.info(`Transcrição concluída. Gerando resumo clínico...`)
-    const resumo = await resumirTranscricao(transcricao)
+    logger.info(`Transcrição bruta concluída. Identificando falantes...`)
+    const transcricao = await diarizarTranscricao(bruta)
 
     return reply.send({
       ok: true,
       transcricao,
+      bruta // Opcional, mantido para debug
+    })
+  } catch (err: any) {
+    logger.error('Erro ao transcrever consulta com identificação de falantes', err, { userId: (req as any).user?.id })
+    return reply.code(500).send({ error: 'erro_no_processamento_de_audio' })
+  }
+}
+
+/**
+ * Pega uma transcrição completa e gera um resumo clínico rústico
+ */
+export async function resumirTranscricaoController(
+  req: FastifyRequest<{ Body: { transcricao: string } }>,
+  reply: FastifyReply
+) {
+  try {
+    const user = req.user
+    if (!user || user.tipo_usuario !== 'medico') {
+      return reply.code(403).send({ error: 'apenas_medicos_podem_resumir_consultas' })
+    }
+
+    const { transcricao } = req.body
+    if (!transcricao) {
+      return reply.code(400).send({ error: 'transcricao_obrigatoria_para_resumo' })
+    }
+
+    logger.info(`Gerando resumo final de consulta para médico ${user.id}`)
+    
+    const resumo = await resumirTranscricao(transcricao)
+
+    return reply.send({
+      ok: true,
       resumo
     })
   } catch (err: any) {
-    logger.error('Erro ao transcrever/resumir consulta', err, { userId: (req as any).user?.id })
-    return reply.code(500).send({ error: 'erro_no_processamento_de_audio' })
+    logger.error('Erro ao gerar resumo da consulta', err, { userId: (req as any).user?.id })
+    return reply.code(500).send({ error: 'erro_ao_gerar_resumo' })
   }
 }

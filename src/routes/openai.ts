@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify'
-import { openaiChatController, confirmTriagemController, transcreverConsultaController } from '../controllers/openaiController'
+import { openaiChatController, confirmTriagemController, transcreverConsultaController, resumirTranscricaoController } from '../controllers/openaiController'
 import { authenticateJWT } from '../middlewares/auth'
 
 export async function openaiRoutes(fastify: FastifyInstance) {
@@ -23,5 +23,12 @@ export async function openaiRoutes(fastify: FastifyInstance) {
     preHandler: authenticateJWT,
     handler: transcreverConsultaController,
     bodyLimit: 50 * 1024 * 1024, // 50MB para áudios longos
+  })
+
+  fastify.route({
+    method: 'POST',
+    url: '/chat-ia/resumir',
+    preHandler: authenticateJWT,
+    handler: resumirTranscricaoController
   })
 }

@@ -378,8 +378,6 @@ export async function chatWithOpenAI(
  */
 export async function transcreverConsulta(audioBuffer: Buffer, filename: string) {
   try {
-    // Whisper requer um arquivo real ou uma stream que se comporte como tal
-    // O SDK da OpenAI aceita um objeto que implementa as propriedades necessárias
     const transcription = await client.audio.transcriptions.create({
       file: await OpenAI.toFile(audioBuffer, filename),
       model: 'whisper-1',
@@ -387,7 +385,7 @@ export async function transcreverConsulta(audioBuffer: Buffer, filename: string)
       response_format: 'text',
     });
 
-    return transcription;
+    return transcription as unknown as string;
   } catch (error) {
     console.error('Erro na transcrição OpenAI:', error);
     throw error;
@@ -395,8 +393,45 @@ export async function transcreverConsulta(audioBuffer: Buffer, filename: string)
 }
 
 /**
+ * Identifica quem está falando (Médico vs Paciente) em uma transcrição bruta
+ */
+export async function diarizarTranscricao(transcricao: string) {
+  if (!transcricao || transcricao.trim().length < 5) return transcricao;
+
+  try {
+    const prompt = `A transcrição abaixo é um trecho de uma consulta de telemedicina entre um MÉDICO e um PACIENTE.
+Identifique quem está falando cada trecho e formate o texto com os prefixos "Médico:" e "Paciente:".
+
+Transcrição bruta:
+"${transcricao}"
+
+REGRAS:
+1. Identifique as falas baseando-se no contexto clínico.
+2. Mantenha o conteúdo exatamente como transcrito, apenas coloque quem falou na frente.
+3. Use o formato:
+   Médico: [fala]
+   Paciente: [fala]
+4. Se houver apenas uma pessoa falando, use o prefixo correspondente.
+5. NÃO resuma, NÃO mude palavras, NÃO adicione introduções.`;
+
+    const response = await client.chat.completions.create({
+      model: 'gpt-4o-mini',
+      temperature: 0,
+      messages: [
+        { role: 'system', content: 'Você é um assistente que identifica falantes em diálogos médicos sem alterar o texto original.' },
+        { role: 'user', content: prompt }
+      ]
+    });
+
+    return response.choices[0].message.content || transcricao;
+  } catch (error) {
+    console.error('Erro na diarização:', error);
+    return transcricao;
+  }
+}
+
+/**
  * Resume uma transcrição de consulta médica de forma direta e prática ("rústica")
- * Foca em capturar tudo o que foi falado sem as amarras de uma estrutura rígida.
  */
 export async function resumirTranscricao(transcricao: string) {
   if (!transcricao || transcricao.trim().length < 10) {
