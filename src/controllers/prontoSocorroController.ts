@@ -25,10 +25,19 @@ export async function listarSalasEmAndamento(req: RequestWithUserId, reply: Fast
     const validation = validateNumericId(userId, 'user_id')
     if (!validation.valid) return reply.code(400).send(validation.error!)
 
-    // For other users, we'd still need to check profiles, but let's assume it's current user mostly
-    // or just filter for the target user's profiles
+    const targetUserId = validation.numericId!
+    
+    // SECURITY: Apenas o próprio usuário ou um Admin pode listar salas de um ID específico
+    if (user.id !== targetUserId && user.tipo_usuario !== 'admin') {
+        logger.warn('Tentativa de enumeração de salas bloqueada (IDOR)', { 
+            requesterId: user.id, 
+            targetId: targetUserId 
+        })
+        return reply.code(403).send({ error: 'forbidden', message: 'Você não tem permissão para listar salas deste usuário.' })
+    }
+
     const target = await prisma.usuario.findUnique({
-      where: { id: validation.numericId },
+      where: { id: targetUserId },
       include: { paciente: true, medico: true }
     })
     if (!target) return reply.send([])

@@ -31,7 +31,8 @@ export class LoginService {
 
     if (!user) {
       logger.warn('Login attempt with non-existent email', { email: logger.sanitize({ email }) })
-      throw new ApiError('Usuário com este email não foi encontrado.', 404, 'USER_NOT_FOUND')
+      // SECURITY: Unificamos a mensagem e o código de erro para evitar enumeração de contas (OWASP).
+      throw new ApiError('E-mail ou senha incorretos.', 401, 'INVALID_CREDENTIALS')
     }
 
     // Verificar senha
@@ -43,7 +44,8 @@ export class LoginService {
     const isPasswordValid = await bcrypt.compare(senha, user.senha_hash)
     if (!isPasswordValid) {
       logger.warn('Failed login attempt - wrong password', { userId: user.id })
-      throw new ApiError('Senha incorreta. Verifique sua senha e tente novamente.', 401, 'WRONG_PASSWORD')
+      // SECURITY: Mesmo erro que o caso 'user not found' para anonimato de existência da conta.
+      throw new ApiError('E-mail ou senha incorretos.', 401, 'INVALID_CREDENTIALS')
     }
 
     // Extrair nome e verificação do perfil correspondente

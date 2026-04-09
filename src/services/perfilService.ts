@@ -1,6 +1,7 @@
 import prisma from '../config/database'
 import ApiError from '../utils/apiError'
 import { sanitizeText, sanitizePhone, sanitizeCPF } from '../utils/security'
+import { encrypt } from '../utils/encryption'
 import logger from '../utils/logger'
 
 export class PerfilService {
@@ -75,21 +76,21 @@ export class PerfilService {
                     if (data.rqe) updateData.rqe = data.rqe
                     if (data.resumo_profissional) updateData.resumo_profissional = sanitizeText(data.resumo_profissional)
 
-                    // Documentos em Banco (Dados Binários)
+                    // Documentos em Banco (Dados Binários) Criptografados (LGPD)
                     if (data.diploma && data.diploma.data) {
-                        updateData.diploma_data = Buffer.from(data.diploma.data, 'base64')
+                        updateData.diploma_data = Buffer.from(encrypt(Buffer.from(data.diploma.data, 'base64')), 'utf8')
                         updateData.diploma_mimetype = data.diploma.mimetype
                     }
                     if (data.especializacao && data.especializacao.data) {
-                        updateData.especializacao_data = Buffer.from(data.especializacao.data, 'base64')
+                        updateData.especializacao_data = Buffer.from(encrypt(Buffer.from(data.especializacao.data, 'base64')), 'utf8')
                         updateData.especializacao_mimetype = data.especializacao.mimetype
                     }
                     if (data.assinatura_digital && data.assinatura_digital.data) {
-                        updateData.assinatura_digital_data = Buffer.from(data.assinatura_digital.data, 'base64')
+                        updateData.assinatura_digital_data = Buffer.from(encrypt(Buffer.from(data.assinatura_digital.data, 'base64')), 'utf8')
                         updateData.assinatura_digital_mimetype = data.assinatura_digital.mimetype
                     }
                     if (data.seguro_responsabilidade && data.seguro_responsabilidade.data) {
-                        updateData.seguro_responsabilidade_data = Buffer.from(data.seguro_responsabilidade.data, 'base64')
+                        updateData.seguro_responsabilidade_data = Buffer.from(encrypt(Buffer.from(data.seguro_responsabilidade.data, 'base64')), 'utf8')
                         updateData.seguro_responsabilidade_mimetype = data.seguro_responsabilidade.mimetype
                     }
 

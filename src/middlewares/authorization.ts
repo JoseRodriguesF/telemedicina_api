@@ -13,7 +13,8 @@ export async function authorizeConsultaAccess(
 ) {
     const user = request.user as AuthenticatedUser
     if (!user) {
-        return reply.code(401).send({ error: 'unauthorized', message: 'Autenticação necessária' })
+        reply.code(401).send({ error: 'unauthorized', message: 'Autenticação necessária' })
+        return
     }
 
     // Extrair consultaId dos params (pode ser 'id' ou 'consultaId')
@@ -21,7 +22,8 @@ export async function authorizeConsultaAccess(
     const consultaId = Number(params.id || params.consultaId)
 
     if (isNaN(consultaId)) {
-        return reply.code(400).send({ error: 'invalid_consulta_id', message: 'ID de consulta inválido' })
+        reply.code(400).send({ error: 'invalid_consulta_id', message: 'ID de consulta inválido' })
+        return
     }
 
     // Buscar consulta
@@ -31,7 +33,8 @@ export async function authorizeConsultaAccess(
     })
 
     if (!consulta) {
-        return reply.code(404).send({ error: 'consulta_not_found', message: 'Consulta não encontrada' })
+        reply.code(404).send({ error: 'consulta_not_found', message: 'Consulta não encontrada' })
+        return
     }
 
     // Verificar autorização
@@ -47,7 +50,8 @@ export async function authorizeConsultaAccess(
             userMedicoId: user.medicoId,
             userPacienteId: user.pacienteId
         })
-        return reply.code(403).send({ error: 'forbidden', message: 'Acesso negado a esta consulta' })
+        reply.code(403).send({ error: 'forbidden', message: 'Acesso negado a esta consulta' })
+        return
     }
 
     // Anexar consulta ao request para evitar busca duplicada
@@ -60,22 +64,25 @@ export async function authorizeConsultaAccess(
 export async function requireVerifiedMedico(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as AuthenticatedUser
     if (!user) {
-        return reply.code(401).send({ error: 'unauthorized', message: 'Autenticação necessária' })
+        reply.code(401).send({ error: 'unauthorized', message: 'Autenticação necessária' })
+        return
     }
 
     if (user.tipo_usuario !== 'medico') {
-        return reply.code(403).send({
+        reply.code(403).send({
             error: 'forbidden_only_medico',
             message: 'Apenas médicos podem acessar este recurso'
         })
+        return
     }
 
     const medicoId = user.medicoId
     if (!medicoId) {
-        return reply.code(409).send({
+        reply.code(409).send({
             error: 'medico_record_not_found',
             message: 'Perfil de médico não encontrado'
         })
+        return
     }
 
     const medico = await prisma.medico.findUnique({
@@ -84,10 +91,11 @@ export async function requireVerifiedMedico(request: FastifyRequest, reply: Fast
     })
 
     if (!medico || medico.verificacao !== 'verificado') {
-        return reply.code(403).send({
+        reply.code(403).send({
             error: 'medico_not_verified',
             message: 'Médico não verificado. Aguarde a aprovação do seu cadastro.'
         })
+        return
     }
 
     // Anexar medicoId ao request
@@ -100,22 +108,25 @@ export async function requireVerifiedMedico(request: FastifyRequest, reply: Fast
 export async function requirePaciente(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as AuthenticatedUser
     if (!user) {
-        return reply.code(401).send({ error: 'unauthorized', message: 'Autenticação necessária' })
+        reply.code(401).send({ error: 'unauthorized', message: 'Autenticação necessária' })
+        return
     }
 
     if (user.tipo_usuario !== 'paciente') {
-        return reply.code(403).send({
+        reply.code(403).send({
             error: 'forbidden_only_paciente',
             message: 'Apenas pacientes podem acessar este recurso'
         })
+        return
     }
 
     const pacienteId = user.pacienteId
     if (!pacienteId) {
-        return reply.code(409).send({
+        reply.code(409).send({
             error: 'paciente_record_not_found',
             message: 'Perfil de paciente não encontrado'
         })
+        return
     }
 
     // Anexar pacienteId ao request
@@ -128,13 +139,15 @@ export async function requirePaciente(request: FastifyRequest, reply: FastifyRep
 export function requireAdmin(request: FastifyRequest, reply: FastifyReply) {
     const user = request.user as AuthenticatedUser
     if (!user) {
-        return reply.code(401).send({ error: 'unauthorized', message: 'Autenticação necessária' })
+        reply.code(401).send({ error: 'unauthorized', message: 'Autenticação necessária' })
+        return
     }
 
     if (user.tipo_usuario !== 'admin') {
-        return reply.code(403).send({
+        reply.code(403).send({
             error: 'forbidden_admin_only',
             message: 'Apenas administradores podem acessar este recurso'
         })
+        return
     }
 }

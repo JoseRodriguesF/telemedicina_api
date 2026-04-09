@@ -81,8 +81,10 @@ export function sanitizePhone(phone: string): string {
  * Valida formato de email (adicional ao Zod)
  */
 export function validateEmail(email: string): boolean {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email) && email.length <= 255
+    if (!email || typeof email !== 'string') return false
+    const trimmed = email.trim()
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/
+    return emailRegex.test(trimmed) && trimmed.length <= 255
 }
 
 /**

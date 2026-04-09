@@ -32,9 +32,11 @@ server.register(helmet, {
   }
 })
 
-// Hardening 2: CORS restrito (Em produção, trocar * pelo domínio específico)
+// Hardening 2: CORS restrito
 server.register(cors, {
-  origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',') : true,
+  origin: process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',') 
+    : (process.env.NODE_ENV === 'production' ? false : true), // Em produção, proibir se não houver whitelist
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true

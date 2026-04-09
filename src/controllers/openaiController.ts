@@ -142,9 +142,11 @@ export async function openaiChatController(req: FastifyRequest<{ Body: ChatBody 
       }
     }
 
+    // LGPD/CFM: Anonimização de PII (Personally Identifiable Information) ao enviar para IA generativa.
+    // Usamos um identificador genérico em vez do nome real do paciente para mitigar riscos de privacidade.
     const { answer, completed, dadosEstruturados } = await chatWithOpenAI(
       message,
-      nomePaciente,
+      'Paciente', // Anonimizado conforme LGPD
       history || [],
       contextoHistorico
     )

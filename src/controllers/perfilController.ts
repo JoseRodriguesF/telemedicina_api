@@ -4,6 +4,7 @@ import { AuthenticatedUser } from '../types/shared'
 import ApiError from '../utils/apiError'
 import logger from '../utils/logger'
 import { logAuditoria } from '../utils/auditLogger'
+import { decrypt as decryptData } from '../utils/encryption'
 
 const perfilService = new PerfilService()
 
@@ -91,6 +92,18 @@ export class PerfilController {
             }
 
             const result = await perfilService.updateProfile(user.id, request.body)
+
+            // Registro na trilha de auditoria (LGPD/CFM)
+            await logAuditoria({
+                usuarioId: user.id,
+                acao: 'UPDATE_PROFILE',
+                recurso: 'USUARIO',
+                recursoId: user.id,
+                detalhes: 'Perfil atualizado pelo próprio usuário.',
+                ip: request.ip,
+                userAgent: request.headers['user-agent']
+            });
+
             reply.send(result)
         } catch (error: any) {
             if (error instanceof ApiError) {
@@ -122,7 +135,10 @@ export class PerfilController {
                 userAgent: request.headers['user-agent']
             });
 
-            return reply.type(doc.mimetype || 'application/octet-stream').send(doc.data)
+            // Documentos sensíveis vêm criptografados do banco
+            // @ts-ignore
+            const decrypted = decryptData(doc.data.toString('utf8'), true)
+            return reply.type(doc.mimetype || 'application/octet-stream').send(decrypted)
         } catch (error: any) {
             if (error instanceof ApiError) {
                 reply.code(error.statusCode).send({ error: { code: error.code, message: error.message } })

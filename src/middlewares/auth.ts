@@ -26,7 +26,8 @@ export const authenticateJWT = async (request: FastifyRequest, reply: FastifyRep
   }
 
   if (!token) {
-    return reply.code(401).send({ error: 'unauthorized', message: 'Token de acesso necessário no cabeçalho Authorization' })
+    reply.code(401).send({ error: 'unauthorized', message: 'Token de acesso necessário no cabeçalho Authorization' })
+    return
   }
 
   try {
@@ -43,7 +44,8 @@ export const authenticateJWT = async (request: FastifyRequest, reply: FastifyRep
 
     if (!usuario) {
       logger.warn('JWT valid but user not found', { userId: decoded.id })
-      return reply.code(401).send({ error: 'unauthorized', message: 'Usuário não encontrado' })
+      reply.code(401).send({ error: 'unauthorized', message: 'Usuário não encontrado' })
+      return
     }
 
     // Anexa o usuário ao request com tipo correto e IDs de perfil resolvidos
@@ -56,6 +58,6 @@ export const authenticateJWT = async (request: FastifyRequest, reply: FastifyRep
     }
   } catch (error: any) {
     logger.debug('JWT verification failed', { error: error.message })
-    return reply.code(401).send({ error: 'unauthorized', message: 'Token inválido ou expirado' })
+    reply.code(401).send({ error: 'unauthorized', message: 'Token inválido ou expirado' })
   }
 }

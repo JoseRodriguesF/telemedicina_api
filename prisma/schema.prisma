@@ -68,6 +68,7 @@ model Medico {
   seguro_responsabilidade_data     Bytes?
   seguro_responsabilidade_mimetype String?           @db.VarChar(100)
   resumo_profissional              String?
+  especialidade                    String?           @db.VarChar(100)
   consultas                        Consulta[]        @relation("ConsultaMedico")
   usuario                          Usuario           @relation(fields: [usuario_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
@@ -103,6 +104,7 @@ model Consulta {
   repouso           String?
   destino_final     String?           @map("destino_final")
   diagnostico       String?
+  cid               String?           @db.VarChar(10)
   evolucao          String?
   plano_terapeutico String?           @map("plano_terapeutico")
   especialidade_seguimento String?    @map("especialidade_seguimento")

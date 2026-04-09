@@ -16,6 +16,16 @@ export class RegisterService {
       throw new ApiError('Não foi possível completar o registro com estas credenciais.', 409, 'REGISTRATION_FAILED')
     }
 
+    // SECURITY: Validação de força de senha no Backend
+    if (!senha || senha.length < 8) {
+        throw new ApiError('A senha deve ter no mínimo 8 caracteres.', 400, 'WEAK_PASSWORD')
+    }
+    const hasLetter = /[a-zA-Z]/.test(senha)
+    const hasNumber = /[0-9]/.test(senha)
+    if (!hasLetter || !hasNumber) {
+        throw new ApiError('A senha deve conter letras e números.', 400, 'WEAK_PASSWORD')
+    }
+
     const senha_hash = await bcrypt.hash(senha, 12)
 
     try {
