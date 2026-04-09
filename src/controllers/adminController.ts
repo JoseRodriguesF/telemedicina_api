@@ -45,10 +45,8 @@ export class AdminController {
                 }
             }
 
-            // 1. Horários com maior/menor número de atendimentos
-            // Nota: Como o Prisma não suporta extract(hour) diretamente em groupBY de forma cross-db facilmente,
-            // buscaremos as consultas e processaremos no código (ou usaremos query bruta)
-            const consultations = await prisma.consulta.findMany({
+            // 1. Consultas para os gráficos (Apenas finalizadas para métricas de atendimento real)
+            const chartsConsultations = await prisma.consulta.findMany({
                 where: {
                     ...dateFilter,
                     status: 'finished'
@@ -61,11 +59,18 @@ export class AdminController {
                 }
             })
 
+            // 2. Estatísticas Globais da Plataforma (Sem filtros de data para os totais gerais)
+            const [totalPacientes, totalMedicos, totalConsultasGeral] = await Promise.all([
+                prisma.usuario.count({ where: { tipo_usuario: 'usuario' } }),
+                prisma.medico.count(),
+                prisma.consulta.count()
+            ])
+
             const hourlyStats: Record<number, number> = {}
             const specialtyGenderStats: Record<string, Record<string, number>> = {}
             const cidStats: Record<string, number> = {}
 
-            consultations.forEach(c => {
+            chartsConsultations.forEach(c => {
                 // Horários
                 if (c.hora_inicio) {
                     const hour = new Date(c.hora_inicio).getUTCHours()
@@ -103,7 +108,10 @@ export class AdminController {
                 hourly: formattedHourly,
                 specialtyGender: formattedSpecialty,
                 topCids: formattedCids,
-                totalConsultations: consultations.length
+                totalConsultations: totalConsultasGeral, // Agora retorna o total real da plataforma
+                totalPatients: totalPacientes,
+                totalDoctors: totalMedicos,
+                finishedConsultationsCount: chartsConsultations.length
             })
         } catch (error) {
             logger.error('AdminController.getStats error', error)
