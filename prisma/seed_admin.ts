@@ -1,3 +1,4 @@
+/// <reference types="node" />
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -8,10 +9,14 @@ async function main() {
   // Create some users
   const admin = await prisma.usuario.upsert({
     where: { email: 'admin@matriarca.com.br' },
-    update: {},
+    update: {
+      senha_hash: '$2b$12$HCPObsbLC6/jVspGSfKyhuxbqu5jHBNz6dBZYzDSFPxEBTbpj2Yla',
+      tipo_usuario: 'admin',
+      registroFull: true
+    },
     create: {
       email: 'admin@matriarca.com.br',
-      senha_hash: '$2b$10$YourHashHere', // Note: Use real hashed pass if login needed, or just for stats
+      senha_hash: '$2b$12$HCPObsbLC6/jVspGSfKyhuxbqu5jHBNz6dBZYzDSFPxEBTbpj2Yla', 
       tipo_usuario: 'admin',
       registroFull: true,
     },
