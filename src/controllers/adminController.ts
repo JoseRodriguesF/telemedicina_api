@@ -61,7 +61,7 @@ export class AdminController {
 
             // 2. Estatísticas Globais da Plataforma (Sem filtros de data para os totais gerais)
             const [totalPacientes, totalMedicos, totalConsultasGeral] = await Promise.all([
-                prisma.usuario.count({ where: { tipo_usuario: 'usuario' } }),
+                prisma.usuario.count({ where: { tipo_usuario: 'paciente' } }),
                 prisma.medico.count(),
                 prisma.consulta.count()
             ])
@@ -104,6 +104,12 @@ export class AdminController {
                 .sort((a, b) => b.count - a.count)
                 .slice(0, 10) // Top 10
 
+            // 3. Recent Audit Logs for the dashboard preview
+            const recentLogs = await prisma.trilhaAuditoria.findMany({
+                take: 5,
+                orderBy: { createdAt: 'desc' }
+            })
+
             return reply.send({
                 hourly: formattedHourly,
                 specialtyGender: formattedSpecialty,
@@ -111,7 +117,8 @@ export class AdminController {
                 totalConsultations: totalConsultasGeral, // Agora retorna o total real da plataforma
                 totalPatients: totalPacientes,
                 totalDoctors: totalMedicos,
-                finishedConsultationsCount: chartsConsultations.length
+                finishedConsultationsCount: chartsConsultations.length,
+                recentLogs
             })
         } catch (error) {
             logger.error('AdminController.getStats error', error)
@@ -253,6 +260,22 @@ export class AdminController {
         } catch (error) {
             logger.error('AdminController.getMedicoDocument error', error)
             return reply.code(500).send({ error: 'Erro ao buscar documento' })
+        }
+    }
+
+    /**
+     * Retorna logs de auditoria para o painel de governança
+     */
+    async getAuditLogs(request: FastifyRequest, reply: FastifyReply) {
+        try {
+            const logs = await prisma.trilhaAuditoria.findMany({
+                take: 50,
+                orderBy: { createdAt: 'desc' }
+            })
+            return reply.send(logs)
+        } catch (error) {
+            logger.error('AdminController.getAuditLogs error', error)
+            return reply.code(500).send({ error: 'Erro ao buscar logs de auditoria' })
         }
     }
 }

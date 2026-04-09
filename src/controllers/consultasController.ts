@@ -151,6 +151,14 @@ export async function endConsulta(req: RequestWithNumericId, reply: FastifyReply
     const user = req.user as AuthenticatedUser
     if (!checkAuth(user, consulta)) return reply.code(403).send({ error: 'forbidden' })
 
+    // CFM: Imutabilidade do prontuário. Se já estiver finalizado, não permite nova edição via 'end'
+    if (consulta.status === 'finished') {
+      return reply.code(400).send({ 
+        error: 'consulta_already_finished', 
+        message: 'Esta consulta já foi finalizada e seu prontuário está lacrado conforme normas do CFM.' 
+      })
+    }
+
     // Encerrar a sala de vídeo/WebRTC
     const { roomId } = Rooms.createOrGet(id)
     Rooms.end(roomId)
@@ -488,6 +496,14 @@ export async function updatePacienteNotas(req: RequestWithNumericId, reply: Fast
     include: { paciente: true }
   })
   if (!consulta) return reply.code(404).send({ error: 'consulta_not_found' })
+
+  // CFM: Imutabilidade do prontuário
+  if (consulta.status === 'finished') {
+    return reply.code(400).send({ 
+      error: 'consulta_already_finished', 
+      message: 'Não é possível editar notas de um prontuário de consulta já finalizada.' 
+    })
+  }
 
   const user = req.user as AuthenticatedUser
   if (user.tipo_usuario !== 'medico' || user.medicoId !== consulta.medicoId) {
